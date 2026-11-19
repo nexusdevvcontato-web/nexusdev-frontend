@@ -1592,6 +1592,96 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Fila offline de sincronização com o Render + status da nuvem
+  const [cloudStatus, setCloudStatus] = useState('checking'); // 'checking' | 'online' | 'queued' | 'offline'
+  const [syncQueue, setSyncQueue] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nexusdev_sync_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexusdev_sync_queue', JSON.stringify(syncQueue));
+    } catch {}
+  }, [syncQueue]);
+
+  const enqueueSyncItem = (item) => {
+    setSyncQueue((prev) => {
+      const id = `${item.type}_${item.challengeId || 'cert'}_${Date.now()}`;
+      return [...prev, { ...item, id }];
+    });
+    setCloudStatus('queued');
+  };
+
+  // Acorda a API no Render assim que a plataforma abre e reenvia itens pendentes
+  useEffect(() => {
+    let cancelled = false;
+
+    const pingAndFlush = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/health`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('API indisponível');
+        if (cancelled) return;
+
+        setCloudStatus('online');
+
+        if (authToken && syncQueue.length > 0) {
+          const remaining = [];
+          for (const item of syncQueue) {
+            try {
+              if (item.type === 'complete') {
+                await fetch(`${API_BASE_URL}/api/progress/complete`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authToken}`
+                  },
+                  body: JSON.stringify({
+                    challengeId: item.challengeId,
+                    files: item.files || {}
+                  })
+                });
+              } else if (item.type === 'certificate') {
+                await fetch(`${API_BASE_URL}/api/certificates/issue`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authToken}`
+                  },
+                  body: JSON.stringify(item.payload || {})
+                });
+              }
+            } catch {
+              remaining.push(item);
+            }
+          }
+          if (!cancelled) {
+            setSyncQueue(remaining);
+            setCloudStatus(remaining.length > 0 ? 'queued' : 'online');
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setCloudStatus(syncQueue.length > 0 ? 'queued' : 'offline');
+        }
+      }
+    };
+
+    pingAndFlush();
+    const interval = setInterval(pingAndFlush, 30000);
+    window.addEventListener('online', pingAndFlush);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('online', pingAndFlush);
+    };
+  }, [authToken, syncQueue]);
+
   useEffect(() => {
     try {
       if (currentUser) {
@@ -2075,7 +2165,16 @@ export default function App() {
           Authorization: `Bearer ${authToken}`
         },
         body: JSON.stringify({ challengeId, files: filesMap || {} })
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Falha no sync');
+          setCloudStatus('online');
+        })
+        .catch(() => {
+          enqueueSyncItem({ type: 'complete', challengeId, files: filesMap || {} });
+        });
+    } else {
+      enqueueSyncItem({ type: 'complete', challengeId, files: filesMap || {} });
     }
   };
 
@@ -2194,6 +2293,36 @@ export default function App() {
 
           {/* Ofensiva Diária, XP e Autenticação */}
           <div className="flex items-center gap-2">
+            <div
+              title={
+                cloudStatus === 'online'
+                  ? 'API na nuvem conectada'
+                  : cloudStatus === 'queued'
+                  ? `${syncQueue.length} item(ns) aguardando envio para a nuvem`
+                  : cloudStatus === 'checking'
+                  ? 'Acordando servidor na nuvem...'
+                  : 'Sem conexão com a nuvem — progresso salvo localmente'
+              }
+              className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono ${
+                cloudStatus === 'online'
+                  ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                  : cloudStatus === 'queued'
+                  ? 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>
+                {cloudStatus === 'online'
+                  ? 'Nuvem OK'
+                  : cloudStatus === 'queued'
+                  ? `Fila (${syncQueue.length})`
+                  : cloudStatus === 'checking'
+                  ? 'Nuvem...'
+                  : 'Local'}
+              </span>
+            </div>
+
             <div
               title={`Meta diária: ${Math.min(streakData.todayCompleted, 2)}/2 aulas hoje`}
               className="hidden md:flex items-center gap-1.5 bg-orange-950/40 px-2.5 py-1.5 rounded-xl border border-orange-500/30 text-xs"
