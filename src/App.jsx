@@ -44,6 +44,7 @@ import {
   Cpu,
   MessageSquare,
   Send,
+  QrCode,
   FolderOpen,
   Share2,
   CheckCheck,
@@ -840,7 +841,6 @@ function buildFull140PerModuleCurriculum(baseModules) {
     while (list.length < TARGET_PER_MODULE) {
       const difficulty = idx <= 45 ? 'Iniciante' : idx <= 95 ? 'Intermediário' : 'Avançado';
 
-      // MÓDULO 1: 100% HTML5 & CSS3 COM PROJETOS PROGRESSIVOS ÚNICOS
       if (mod.number === 1) {
         const scenario = idx % 8;
         if (scenario === 1) {
@@ -992,7 +992,7 @@ function buildFull140PerModuleCurriculum(baseModules) {
             ]
           });
         } else if (scenario === 6) {
-          const cols = (idx % 2) + 2; // 2 ou 3 colunas
+          const cols = (idx % 2) + 2;
           list.push({
             id: `mod-1-aula-${idx}`,
             title: `Aula ${idx}: CSS Grid — Criando Vitrine de ${cols} Colunas`,
@@ -1086,7 +1086,6 @@ function buildFull140PerModuleCurriculum(baseModules) {
         continue;
       }
 
-      // MÓDULOS 2 A 5: DESAFIOS ÚNICOS DE LÓGICA, REACT, NODE.JS E SEGURANÇA JWT
       const kind = idx % 6;
       if (mod.number === 2) {
         if (kind === 1) {
@@ -1253,7 +1252,6 @@ function buildFull140PerModuleCurriculum(baseModules) {
         continue;
       }
 
-      // MÓDULO 3 (REACT), MÓDULO 4 (NODE/EXPRESS) E MÓDULO 5 (MONGODB/JWT)
       if (mod.number === 3) {
         const fnName = `atualizarEstadoReact_${idx}`;
         const isToggle = idx % 2 === 0;
@@ -1469,7 +1467,6 @@ export default function App() {
 
   const totalSyllabusCount = allChallenges.length;
 
-  // Detecta se a URL possui ?cert=CODIGO para validação pública imediata
   const initialCertParam = useMemo(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -1479,9 +1476,6 @@ export default function App() {
     }
   }, []);
 
-  // ==========================================================================
-  // 1. PERSISTÊNCIA GLOBAL DE NAVEGAÇÃO
-  // ==========================================================================
   const [navState, setNavState] = useState(() => {
     if (initialCertParam) {
       return {
@@ -1553,7 +1547,7 @@ export default function App() {
   };
 
   // ==========================================================================
-  // 2. SISTEMA DE AUTENTICAÇÃO CLOUD (E-MAIL/SENHA + GOOGLE OAUTH)
+  // SISTEMA DE AUTENTICAÇÃO CLOUD (E-MAIL/SENHA + GOOGLE OAUTH)
   // ==========================================================================
   const [authToken, setAuthToken] = useState(() => {
     try {
@@ -1592,8 +1586,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Fila offline de sincronização com o Render + status da nuvem
-  const [cloudStatus, setCloudStatus] = useState('checking'); // 'checking' | 'online' | 'queued' | 'offline'
+  const [cloudStatus, setCloudStatus] = useState('checking');
   const [syncQueue, setSyncQueue] = useState(() => {
     try {
       const saved = localStorage.getItem('nexusdev_sync_queue');
@@ -1617,7 +1610,6 @@ export default function App() {
     setCloudStatus('queued');
   };
 
-  // Acorda a API no Render assim que a plataforma abre e reenvia itens pendentes
   useEffect(() => {
     let cancelled = false;
 
@@ -1702,7 +1694,6 @@ export default function App() {
     } catch {}
   }, [googleClientId]);
 
-  // Sincroniza progresso com o back-end no Render caso haja token ativo
   useEffect(() => {
     if (!authToken) return;
     fetch(`${API_BASE_URL}/api/me`, {
@@ -1737,7 +1728,6 @@ export default function App() {
       .catch(() => {});
   }, [authToken]);
 
-  // SDK oficial Google Identity Services
   useEffect(() => {
     if (!authModalOpen || !googleClientId) return;
 
@@ -1830,11 +1820,10 @@ export default function App() {
 
   const userStoragePrefix = currentUser ? `nexusdev_user_${currentUser.email}` : 'nexusdev_guest';
 
-  // Busca e Filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('Todas');
+  const [statusFilter, setStatusFilter] = useState('Todas');
 
-  // Módulos expandidos na Trilha
   const [expandedModules, setExpandedModules] = useState({
     'mod-1': true,
     'mod-2': false,
@@ -1844,7 +1833,6 @@ export default function App() {
     'mod-6': true
   });
 
-  // Desafios concluídos & XP extra da comunidade
   const [completedChallenges, setCompletedChallenges] = useState(() => {
     try {
       const saved = localStorage.getItem(`${userStoragePrefix}_completed`);
@@ -1863,7 +1851,6 @@ export default function App() {
     }
   });
 
-  // Ofensiva Diária (Streak)
   const todayStr = new Date().toISOString().split('T')[0];
   const [streakData, setStreakData] = useState(() => {
     try {
@@ -1917,7 +1904,6 @@ export default function App() {
     } catch {}
   }, [streakData, userStoragePrefix]);
 
-  // Checklist e Submissão do Projeto Final
   const [capstoneChecks, setCapstoneChecks] = useState(() => {
     try {
       const saved = localStorage.getItem(`${userStoragePrefix}_cap_checks`);
@@ -1973,7 +1959,6 @@ export default function App() {
     } catch {}
   }, [capstoneSubmission, userStoragePrefix]);
 
-  // Autenticação por E-mail e Senha (Nuvem Render + Fallback Local)
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -2020,9 +2005,7 @@ export default function App() {
         setAuthLoading(false);
         return;
       }
-    } catch {
-      // Se o servidor estiver acordando (cold start), usa fallback local sem travar o aluno
-    }
+    } catch {}
 
     try {
       const usersDbRaw = localStorage.getItem('nexusdev_users_db');
@@ -2118,7 +2101,6 @@ export default function App() {
     }
   };
 
-  // Cálculo de XP (+50 XP por aula concluída) e Nível
   const totalXP = useMemo(() => {
     const labsXP = completedChallenges.length * 50;
     return labsXP + communityXP;
@@ -2182,6 +2164,15 @@ export default function App() {
     setExpandedModules((prev) => ({ ...prev, [modId]: !prev[modId] }));
   };
 
+  const activeChallengeIndex = useMemo(
+    () => Math.max(0, allChallenges.findIndex((c) => c.id === navState.activeChallengeId)),
+    [allChallenges, navState.activeChallengeId]
+  );
+  const activeChallenge = allChallenges[activeChallengeIndex] || allChallenges[0];
+  const prevChallenge = activeChallengeIndex > 0 ? allChallenges[activeChallengeIndex - 1] : null;
+  const nextChallenge =
+    activeChallengeIndex < allChallenges.length - 1 ? allChallenges[activeChallengeIndex + 1] : null;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* ====================================================================
@@ -2223,7 +2214,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Abas de Navegação */}
           <nav className="flex items-center gap-1 sm:gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 overflow-x-auto">
             <button
               type="button"
@@ -2291,7 +2281,6 @@ export default function App() {
             </button>
           </nav>
 
-          {/* Ofensiva Diária, XP e Autenticação */}
           <div className="flex items-center gap-2">
             <div
               title={
@@ -2407,7 +2396,7 @@ export default function App() {
       </header>
 
       {/* ====================================================================
-          MODAL DE AUTENTICAÇÃO (GOOGLE CLOUD OAUTH + E-MAIL/SENHA NA NUVEM)
+          MODAL DE AUTENTICAÇÃO
          ==================================================================== */}
       {authModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -2681,7 +2670,7 @@ export default function App() {
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold text-sm rounded-lg transition-colors shadow-lg shadow-emerald-950/50"
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold text-sm rounded-lg transition-colors"
               >
                 {authLoading
                   ? 'Conectando...'
@@ -2695,970 +2684,704 @@ export default function App() {
       )}
 
       {/* ====================================================================
-          ESTRUTURA COM MENU LATERAL DE TODOS OS MÓDULOS + CONTEÚDO PRINCIPAL
+          CORPO PRINCIPAL COM MENU LATERAL DE MÓDULOS + CONTEÚDO
          ==================================================================== */}
-      {navState.activeView === 'workspace' ? (
-        <ChallengeWorkspace
-          allChallenges={allChallenges}
-          activeChallengeId={navState.activeChallengeId}
-          onSelectChallenge={setActiveChallengeId}
-          completedChallenges={completedChallenges}
-          onCompleteChallenge={markChallengeComplete}
-          onGoToCapstone={() => setActiveView('capstone')}
-          userStoragePrefix={userStoragePrefix}
-          currentUser={currentUser}
-          onEarnCommunityXP={(pts) => setCommunityXP((prev) => prev + pts)}
-        />
-      ) : (
-        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-6 relative">
-          {mobileMenuOpen && (
-            <div
-              onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-slate-950/75 z-40 lg:hidden"
-            />
-          )}
+      <div className="flex-1 max-w-7xl w-full mx-auto flex relative">
+        {mobileMenuOpen && (
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-xs lg:hidden"
+          />
+        )}
 
-          {/* MENU LATERAL COM TODOS OS 6 MÓDULOS */}
-          <aside
-            className={`${
-              mobileMenuOpen
-                ? 'fixed top-0 left-0 bottom-0 z-50 w-80 bg-slate-900 border-r border-slate-800 p-5 overflow-y-auto'
-                : 'hidden lg:block lg:w-72 xl:w-80 shrink-0'
-            }`}
-          >
-            <div className="sticky top-20 rounded-2xl bg-slate-900 border border-slate-800 p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400">
-                    Menu da Formação
-                  </span>
-                  <h2 className="text-sm font-bold text-white mt-0.5">
-                    Todos os Módulos (1 ao 6)
-                  </h2>
+        <aside
+          className={`${
+            mobileMenuOpen
+              ? 'fixed top-[61px] bottom-0 left-0 z-40 w-72 shadow-2xl bg-slate-900'
+              : 'hidden'
+          } lg:block lg:static lg:w-72 shrink-0 bg-slate-900/70 border-r border-slate-800 p-4 overflow-y-auto`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Menu Curricular (6 Módulos)
+            </span>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden p-1 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            {INTERACTIVE_MODULES.map((mod) => {
+              const isSelected = navState.activeModuleId === mod.id;
+              const modDone = mod.challenges.filter((c) => completedChallenges.includes(c.id)).length;
+              return (
+                <button
+                  type="button"
+                  key={mod.id}
+                  onClick={() => selectModuleFromMenu(mod.id)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-2.5 ${
+                    isSelected
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-white'
+                      : 'bg-slate-950/50 border-slate-800/80 text-slate-300 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                      isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-emerald-400'
+                    }`}
+                  >
+                    <ModuleIcon name={mod.icon} className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-emerald-400 font-bold">MÓDULO {mod.number}</span>
+                      <span className="text-slate-400">
+                        {mod.isCapstoneModule ? 'Projeto' : `${modDone}/${mod.totalSyllabusLessons}`}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold leading-snug line-clamp-2 mt-0.5">
+                      {mod.title}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setActiveView('verify')}
+              className="w-full px-3 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 flex items-center justify-between"
+            >
+              <span className="flex items-center gap-1.5">
+                <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Validar Certificado</span>
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+            </button>
+          </div>
+        </aside>
+
+        {/* PÁGINA INICIAL EXPLICATIVA (RESTAURADA AO PADRÃO ORIGINAL) */}
+        {navState.activeView === 'home' && (
+          <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-8">
+            <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl">
+              <div className="max-w-3xl space-y-5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Plataforma Interativa • {totalSyllabusCount} Aulas do Zero ao Full-Stack</span>
                 </div>
-                {mobileMenuOpen && (
+
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                  Aprenda Programação do Zero Absoluto e Construa Aplicações Web Completas
+                </h1>
+
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                  Nunca escreveu uma linha de código? Não tem problema. Na{' '}
+                  <strong className="text-white">NexusDev</strong> você começa criando sua primeira
+                  tag HTML em 2 minutos, evolui passo a passo por CSS3, JavaScript, React, Node.js
+                  e MongoDB, e publica um projeto real com certificado verificável.
+                </p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1.5 rounded-lg bg-slate-800 text-slate-300"
+                    onClick={() => openChallenge(allChallenges[0].id)}
+                    className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-all"
                   >
-                    <X className="w-4 h-4" />
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Começar Agora — Aula 1 (Grátis)</span>
                   </button>
-                )}
-              </div>
 
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Progresso Geral</span>
-                  <span className="font-mono font-bold text-emerald-400">{overallPercentage}%</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('dashboard')}
+                    className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-sm border border-slate-700 flex items-center gap-2 transition-colors"
+                  >
+                    <Compass className="w-4 h-4 text-emerald-400" />
+                    <span>Ver Todas as {totalSyllabusCount} Aulas</span>
+                  </button>
                 </div>
-                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${overallPercentage}%` }}
-                  />
+
+                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-800/80 max-w-lg">
+                  <div>
+                    <div className="text-lg sm:text-2xl font-extrabold text-white">
+                      {totalSyllabusCount}
+                    </div>
+                    <div className="text-[11px] text-slate-400">Aulas Práticas</div>
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-extrabold text-emerald-400">
+                      6 Módulos
+                    </div>
+                    <div className="text-[11px] text-slate-400">Front ao Back-End</div>
+                  </div>
+                  <div>
+                    <div className="text-lg sm:text-2xl font-extrabold text-amber-400">
+                      100% Online
+                    </div>
+                    <div className="text-[11px] text-slate-400">IDE + Tutor IA</div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-400">
-                  {completedCount} de {totalSyllabusCount} aulas concluídas
+              </div>
+            </section>
+
+            {/* Como funciona na prática */}
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-white">
+                  Como Funciona a Metodologia NexusDev
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400">
+                  Nada de aulas passivas longas. Aqui você lê uma explicação curta e programa na hora.
                 </p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                    1
+                  </div>
+                  <h3 className="font-bold text-white text-sm">Explicação Simples + Missão</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Cada aula apresenta um único conceito claro em português, com exemplo pronto e
+                    uma tarefa objetiva para você resolver no editor.
+                  </p>
+                </div>
+
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center font-bold text-sm">
+                    2
+                  </div>
+                  <h3 className="font-bold text-white text-sm">IDE Real com Tutor IA & Memória</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Veja seu HTML/CSS ganhar vida no Preview ao Vivo ou acompanhe as variáveis da
+                    sua função JavaScript passo a passo com ajuda do Tutor IA.
+                  </p>
+                </div>
+
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center font-bold text-sm">
+                    3
+                  </div>
+                  <h3 className="font-bold text-white text-sm">Desbloqueio Guiado & Certificado</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    A próxima aula só abre quando você conclui a atual, garantindo aprendizado
+                    sólido até o Projeto Final e Certificado com QR Code.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* Visão Geral dos 6 Módulos */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white">
+                    Mapa dos 6 Módulos da Formação
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-400">
+                    Clique em qualquer módulo para abrir suas aulas na trilha.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {INTERACTIVE_MODULES.map((mod) => {
-                  const isActiveMod =
-                    navState.activeModuleId === mod.id &&
-                    (navState.activeView === 'dashboard' || navState.activeView === 'capstone');
                   const modDone = mod.challenges.filter((c) =>
                     completedChallenges.includes(c.id)
                   ).length;
-
                   return (
-                    <button
-                      type="button"
+                    <div
                       key={mod.id}
                       onClick={() => selectModuleFromMenu(mod.id)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-2.5 ${
-                        isActiveMod
-                          ? 'bg-emerald-500/10 border-emerald-500/50 text-white'
-                          : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:border-slate-700 hover:bg-slate-800/70'
-                      }`}
+                      className="bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/40 rounded-xl p-5 cursor-pointer transition-all flex flex-col justify-between gap-4"
                     >
-                      <div
-                        className={`p-2 rounded-lg shrink-0 mt-0.5 ${
-                          isActiveMod
-                            ? 'bg-emerald-500 text-slate-950'
-                            : 'bg-slate-800 text-emerald-400'
-                        }`}
-                      >
-                        <ModuleIcon name={mod.icon} className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-emerald-400 font-semibold">
-                            MÓDULO 0{mod.number}
-                          </span>
-                          <span className="text-slate-400">
-                            {mod.isCapstoneModule
-                              ? 'Capstone'
-                              : `${modDone}/${mod.challenges.length}`}
-                          </span>
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-emerald-400 flex items-center justify-center shrink-0">
+                          <ModuleIcon name={mod.icon} className="w-5 h-5" />
                         </div>
-                        <p className="text-xs font-bold text-white leading-snug mt-0.5 line-clamp-2">
-                          {mod.title}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveView('home')}
-                  className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Home className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Início</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveView('leaderboard')}
-                  className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Ranking</span>
-                </button>
-              </div>
-            </div>
-          </aside>
-
-          {/* CONTEÚDO PRINCIPAL */}
-          <div className="flex-1 min-w-0">
-            {/* ================================================================
-                VISÃO 0: PÁGINA INICIAL EXPLICANDO A PLATAFORMA NEXUSDEV
-               ================================================================ */}
-            {navState.activeView === 'home' && (
-              <main className="space-y-8">
-                <section className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-xl space-y-6">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-                    <Rocket className="w-3.5 h-3.5" />
-                    <span>Plataforma Interativa de Engenharia Web Full-Stack</span>
-                  </div>
-
-                  <div className="max-w-3xl space-y-3">
-                    <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
-                      Domine o Desenvolvimento Full-Stack{' '}
-                      <span className="text-emerald-400">do Zero Absoluto ao Deploy</span>
-                    </h1>
-                    <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                      A <strong className="text-white">NexusDev</strong> combina teoria objetiva com
-                      um ambiente prático completo: <strong>140 aulas únicas em cada módulo</strong> (
-                      {totalSyllabusCount} laboratórios progressivos), editor multi-arquivos com
-                      realce de sintaxe, <strong>Tutor IA Contextual</strong>,{' '}
-                      <strong>Inspetor Dinâmico de Memória & Console.log</strong>,{' '}
-                      <strong>Ranking Semanal</strong> e{' '}
-                      <strong>Certificado Verificável com QR Code Real</strong>.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextIncomplete =
-                          allChallenges.find((c) => !completedChallenges.includes(c.id)) ||
-                          allChallenges[0];
-                        openChallenge(nextIncomplete.id);
-                      }}
-                      className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-xl transition-colors flex items-center gap-2 shadow-lg shadow-emerald-950/50"
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>
-                        {completedCount > 0 ? 'Continuar de Onde Parei' : 'Começar Primeira Aula'}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setActiveView('dashboard')}
-                      className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs sm:text-sm font-semibold rounded-xl transition-colors flex items-center gap-2"
-                    >
-                      <Compass className="w-4 h-4 text-emerald-400" />
-                      <span>Ver Trilha Completa ({totalSyllabusCount} Aulas)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setActiveView('verify')}
-                      className="px-4 py-3 bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 text-xs sm:text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-sky-400" />
-                      <span>Validar Certificado</span>
-                    </button>
-                  </div>
-
-                  {/* Pilares da Plataforma */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-4 border-t border-slate-800/80">
-                    <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
-                      <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                        <Code2 className="w-4 h-4" /> IDE Multi-Arquivos
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        Edite HTML, CSS e JavaScript lado a lado com preview ao vivo e testes
-                        automatizados instantâneos.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
-                      <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase tracking-wider">
-                        <Brain className="w-4 h-4" /> Tutor IA Contextual
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        Analisa seu código no servidor e fornece dicas sob medida sem entregar a
-                        resposta pronta.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
-                      <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
-                        <Cpu className="w-4 h-4" /> Memória Ao Vivo
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        Teste suas funções com entradas personalizadas e capture console.log() em
-                        tempo real.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
-                      <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider">
-                        <Trophy className="w-4 h-4" /> Ranking & QR Code
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        Desbloqueie conquistas, dispute o Top 15 semanal e valide certificados
-                        publicamente.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Cards de Todos os Módulos */}
-                <section className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-white">
-                        Grade Curricular Completa (6 Módulos)
-                      </h2>
-                      <p className="text-xs text-slate-400">
-                        Cada módulo técnico conta com 140 aulas práticas progressivas.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveView('dashboard')}
-                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-                    >
-                      <span>Abrir todas as aulas</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {INTERACTIVE_MODULES.map((mod) => (
-                      <div
-                        key={mod.id}
-                        className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-400">
-                              <ModuleIcon name={mod.icon} className="w-4 h-4" />
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-mono font-bold text-emerald-400">
                               MÓDULO {mod.number}
                             </span>
                             <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
                               {mod.isCapstoneModule
-                                ? 'Projeto Integrador'
-                                : `${mod.challenges.length} aulas`}
+                                ? 'Projeto Final'
+                                : `${mod.totalSyllabusLessons} aulas`}
                             </span>
                           </div>
-                          <h3 className="text-base font-bold text-white">{mod.title}</h3>
-                          <p className="text-xs text-slate-400 leading-relaxed">
+                          <h3 className="text-sm sm:text-base font-bold text-white">{mod.title}</h3>
+                          <p className="text-xs text-slate-400 mt-1 line-clamp-2">
                             {mod.description}
                           </p>
                         </div>
-
-                        <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-                          <span className="text-[11px] text-slate-500 truncate max-w-[190px]">
-                            {mod.subtitle}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => selectModuleFromMenu(mod.id)}
-                            className="px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
-                          >
-                            <span>Acessar Módulo</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                </section>
-              </main>
-            )}
 
-            {/* ================================================================
-                VISÃO 1: TRILHA COMPLETA (140 AULAS POR MÓDULO)
-               ================================================================ */}
-            {navState.activeView === 'dashboard' && (
-              <main className="space-y-6">
-                {!currentUser && (
-                  <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-amber-400 shrink-0" />
-                      <p className="text-xs sm:text-sm text-amber-100">
-                        Você está estudando no <strong>Modo Visitante</strong>. Crie uma conta na
-                        nuvem para salvar seu XP, ranking semanal e certificado!
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode('register');
-                        setAuthModalOpen(true);
-                      }}
-                      className="shrink-0 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors"
-                    >
-                      Salvar meu Progresso
-                    </button>
-                  </div>
-                )}
-
-                {/* Barra de Pesquisa e Filtro */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                  <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar entre todas as 700 aulas (ex: Flexbox, Portfólio, Bug, React, Express, JWT)..."
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
-                    <Filter className="w-4 h-4 text-slate-400" />
-                    <select
-                      value={selectedDifficulty}
-                      onChange={(e) => setSelectedDifficulty(e.target.value)}
-                      className="bg-transparent text-xs sm:text-sm text-slate-200 focus:outline-none"
-                    >
-                      <option value="Todas" className="bg-slate-900">
-                        Todos os Níveis
-                      </option>
-                      <option value="Iniciante" className="bg-slate-900">
-                        Nível Iniciante
-                      </option>
-                      <option value="Intermediário" className="bg-slate-900">
-                        Nível Intermediário
-                      </option>
-                      <option value="Avançado" className="bg-slate-900">
-                        Nível Avançado
-                      </option>
-                      <option value="Bug" className="bg-slate-900">
-                        Apenas Conserte o Bug
-                      </option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Lista dos 6 Módulos */}
-                <div className="space-y-4">
-                  {INTERACTIVE_MODULES.map((module) => {
-                    const filteredChallenges = module.challenges.filter((ch) => {
-                      const matchesSearch =
-                        !searchQuery.trim() ||
-                        ch.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        module.title.toLowerCase().includes(searchQuery.toLowerCase());
-                      const matchesDiff =
-                        selectedDifficulty === 'Todas'
-                          ? true
-                          : selectedDifficulty === 'Bug'
-                          ? !!ch.isDebug
-                          : ch.difficulty === selectedDifficulty;
-                      return matchesSearch && matchesDiff;
-                    });
-
-                    if (
-                      (searchQuery.trim() || selectedDifficulty !== 'Todas') &&
-                      filteredChallenges.length === 0 &&
-                      !module.title.toLowerCase().includes(searchQuery.toLowerCase())
-                    ) {
-                      return null;
-                    }
-
-                    const modTotal = module.challenges.length;
-                    const modCompleted = module.challenges.filter((ch) =>
-                      completedChallenges.includes(ch.id)
-                    ).length;
-                    const modPercent =
-                      modTotal > 0 ? Math.round((modCompleted / modTotal) * 100) : 0;
-                    const isExpanded =
-                      !!expandedModules[module.id] ||
-                      searchQuery.trim().length > 0 ||
-                      selectedDifficulty !== 'Todas';
-                    const isCapstoneComplete =
-                      module.isCapstoneModule && capstoneSubmission.submitted;
-
-                    return (
-                      <div
-                        key={module.id}
-                        className={`bg-slate-900 border rounded-xl overflow-hidden transition-all ${
-                          navState.activeModuleId === module.id
-                            ? 'border-emerald-500/50'
-                            : 'border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleModuleExpand(module.id)}
-                          className="w-full p-5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4 focus:outline-none"
-                        >
-                          <div className="flex items-start gap-4">
-                            <div
-                              className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
-                                (modTotal > 0 && modCompleted === modTotal) || isCapstoneComplete
-                                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                                  : 'bg-slate-800 border-slate-700 text-slate-300'
-                              }`}
-                            >
-                              <ModuleIcon name={module.icon} className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <span className="text-xs font-mono font-semibold text-emerald-400">
-                                  MÓDULO {module.number}
-                                </span>
-                                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                                  {module.isCapstoneModule
-                                    ? 'Projeto Final'
-                                    : `${module.challenges.length} aulas práticas`}
-                                </span>
-                                {((modTotal > 0 && modCompleted === modTotal) ||
-                                  isCapstoneComplete) && (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                                    <CheckCircle2 className="w-3 h-3" /> Concluído
-                                  </span>
-                                )}
-                              </div>
-                              <h3 className="text-base sm:text-lg font-bold text-white">
-                                {module.title}
-                              </h3>
-                              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-                                {module.description}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between sm:justify-end gap-4 sm:min-w-[210px] border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
-                            {!module.isCapstoneModule ? (
-                              <div className="flex-1 sm:flex-initial sm:w-36">
-                                <div className="flex justify-between text-xs text-slate-400 mb-1">
-                                  <span>
-                                    {modCompleted}/{modTotal} aulas
-                                  </span>
-                                  <span className="font-mono">{modPercent}%</span>
-                                </div>
-                                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-emerald-500 transition-all duration-300"
-                                    style={{ width: `${modPercent}%` }}
-                                  />
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-xs font-medium text-emerald-400">
-                                Certificação Final
-                              </span>
-                            )}
-
-                            <div className="p-1.5 rounded-lg bg-slate-800/80 text-slate-400">
-                              {isExpanded ? (
-                                <ChevronUp className="w-4 h-4" />
-                              ) : (
-                                <ChevronDown className="w-4 h-4" />
-                              )}
-                            </div>
-                          </div>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="border-t border-slate-800 bg-slate-950/60 p-4 sm:px-6 sm:py-5 space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {module.tracks.map((track, tIdx) => (
-                                <div
-                                  key={tIdx}
-                                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-800/80 text-xs"
-                                >
-                                  <span className="text-slate-300 truncate pr-2">• {track.name}</span>
-                                  <span className="font-mono text-emerald-400 shrink-0">
-                                    {track.count} aulas
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-
-                            {!module.isCapstoneModule ? (
-                              <div>
-                                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
-                                  Todas as {filteredChallenges.length} Aulas Práticas Interativas
-                                </h4>
-                                <div className="max-h-[540px] overflow-y-auto pr-1 space-y-2">
-                                  {filteredChallenges.map((ch, idx) => {
-                                    const isDone = completedChallenges.includes(ch.id);
-                                    const fileNames = Object.keys(ch.files || {});
-                                    return (
-                                      <div
-                                        key={ch.id}
-                                        onClick={() => openChallenge(ch.id)}
-                                        className="group flex items-center justify-between p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/40 cursor-pointer transition-all"
-                                      >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                          {isDone ? (
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                                          ) : (
-                                            <Circle className="w-5 h-5 text-slate-600 group-hover:text-emerald-400 shrink-0 transition-colors" />
-                                          )}
-                                          <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                              <span className="text-sm font-medium text-slate-100 group-hover:text-white truncate">
-                                                {idx + 1}. {ch.title}
-                                              </span>
-                                              {ch.isDebug && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                                                  <Bug className="w-3 h-3" /> Bug Fix
-                                                </span>
-                                              )}
-                                              {fileNames.length > 1 && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                                                  <FolderOpen className="w-3 h-3" />{' '}
-                                                  {fileNames.length} arquivos
-                                                </span>
-                                              )}
-                                            </div>
-                                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-slate-400">
-                                              <span className="uppercase font-mono text-emerald-400/90">
-                                                {ch.language}
-                                              </span>
-                                              <span>•</span>
-                                              <span>{ch.difficulty}</span>
-                                              <span>•</span>
-                                              <span>{ch.estimatedTime}</span>
-                                              <span>•</span>
-                                              <span className="text-amber-400 font-mono">
-                                                +50 XP
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <span className="text-xs font-medium text-slate-400 group-hover:text-emerald-400 flex items-center gap-1 shrink-0 ml-2">
-                                          {isDone ? 'Revisar' : 'Praticar'}
-                                          <ChevronRight className="w-4 h-4" />
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-gradient-to-r from-emerald-950/40 to-slate-900 border border-emerald-500/30">
-                                <div>
-                                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                                    <Award className="w-4 h-4 text-emerald-400" />
-                                    FullStack Store & Painel Administrativo (Projeto Final)
-                                  </h4>
-                                  <p className="text-xs text-slate-300 mt-1">
-                                    Confira os requisitos técnicos, marque o checklist e emita seu
-                                    Certificado Verificável com QR Code.
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveView('capstone')}
-                                  className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5"
-                                >
-                                  <span>Ver Especificação</span>
-                                  <ChevronRight className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </main>
-            )}
-
-            {/* ================================================================
-                VISÃO 2B: RANKING SEMANAL & CONQUISTAS (BADGES)
-               ================================================================ */}
-            {navState.activeView === 'leaderboard' && (
-              <LeaderboardAndBadgesView
-                currentUser={currentUser}
-                totalXP={totalXP}
-                studentLevel={studentLevel}
-                streakData={streakData}
-                completedChallenges={completedChallenges}
-                allChallenges={allChallenges}
-              />
-            )}
-
-            {/* ================================================================
-                VISÃO 3: PROJETO FINAL CAPSTONE & CERTIFICADO VERIFICÁVEL
-               ================================================================ */}
-            {navState.activeView === 'capstone' && (
-              <CapstoneSpecView
-                checks={capstoneChecks}
-                setChecks={setCapstoneChecks}
-                submission={capstoneSubmission}
-                setSubmission={setCapstoneSubmission}
-                completedChallengesCount={completedCount}
-                totalChallengesCount={totalInteractiveChallenges}
-                authToken={authToken}
-                onOpenVerify={(code) => {
-                  setNavState((prev) => ({ ...prev, activeView: 'verify' }));
-                  if (code) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('cert', code);
-                    window.history.replaceState({}, '', url.toString());
-                  }
-                }}
-              />
-            )}
-
-            {/* ================================================================
-                VISÃO 3B: VALIDAÇÃO PÚBLICA DE CERTIFICADOS (QR CODE / RECRUTADOR)
-               ================================================================ */}
-            {navState.activeView === 'verify' && (
-              <CertificateVerificationView
-                initialCode={initialCertParam || capstoneSubmission.verificationCode}
-                localSubmission={capstoneSubmission}
-                completedCount={completedCount}
-                totalXP={totalXP}
-              />
-            )}
-
-            {/* ================================================================
-                VISÃO 4: PERFIL DO ALUNO
-               ================================================================ */}
-            {navState.activeView === 'profile' && currentUser && (
-              <main className="space-y-6">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-                  <div className="flex items-center gap-4">
-                    {currentUser.avatar ? (
-                      <img
-                        src={currentUser.avatar}
-                        alt={currentUser.name}
-                        className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500/60 shadow-lg"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white text-2xl font-bold flex items-center justify-center shadow-lg">
-                        {currentUser.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h1 className="text-xl sm:text-2xl font-bold text-white">
-                          {currentUser.name}
-                        </h1>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                          Conta Sincronizada na Nuvem
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs">
+                        <span className="text-slate-400">
+                          {mod.isCapstoneModule
+                            ? 'Entrega no GitHub + QR Code'
+                            : `Concluídas: ${modDone} de ${mod.totalSyllabusLessons}`}
+                        </span>
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                          <span>Explorar</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </span>
                       </div>
-                      <p className="text-sm text-slate-400">{currentUser.email}</p>
-                      <p className="text-xs text-emerald-400 mt-1">
-                        Estudante NexusDev • Membro desde {currentUser.joinedAt}
-                      </p>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            </section>
+          </main>
+        )}
 
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 text-xs font-semibold flex items-center gap-2 transition-colors"
+        {/* TRILHA COMPLETA DE AULAS */}
+        {navState.activeView === 'dashboard' && (
+          <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">
+                  Trilha Completa — {totalSyllabusCount} Aulas
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-400">
+                  {completedCount} de {totalInteractiveChallenges} laboratórios concluídos ({overallPercentage}%) • {totalXP} XP
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next =
+                    allChallenges.find((c) => !completedChallenges.includes(c.id)) || allChallenges[0];
+                  openChallenge(next.id);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>{completedCount > 0 ? 'Continuar Aulas' : 'Iniciar Agora'}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar aula por tema (ex: Flexbox, Título, Bug, React, JWT)..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs">
+                  {['Todas', 'Pendentes', 'Concluídas'].map((st) => (
+                    <button
+                      type="button"
+                      key={st}
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-2.5 py-1 rounded-lg font-medium ${
+                        statusFilter === st ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
+                  <Filter className="w-4 h-4 text-slate-400" />
+                  <select
+                    value={selectedDifficulty}
+                    onChange={(e) => setSelectedDifficulty(e.target.value)}
+                    className="bg-transparent text-xs sm:text-sm text-slate-200 focus:outline-none"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Encerrar Sessão</span>
-                  </button>
+                    <option value="Todas" className="bg-slate-900">Todos os Níveis</option>
+                    <option value="Iniciante" className="bg-slate-900">Iniciante</option>
+                    <option value="Intermediário" className="bg-slate-900">Intermediário</option>
+                    <option value="Avançado" className="bg-slate-900">Avançado</option>
+                    <option value="Bug" className="bg-slate-900">Apenas Bug Fix</option>
+                  </select>
                 </div>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <span className="text-xs text-slate-400 uppercase font-semibold">
-                      Experiência
-                    </span>
-                    <div className="text-2xl font-bold text-amber-400 mt-1">{totalXP} XP</div>
-                    <p className="text-xs text-slate-500 mt-1">Nível {studentLevel}</p>
+            <div className="space-y-4">
+              {INTERACTIVE_MODULES.map((module) => {
+                const filteredChallenges = module.challenges.filter((ch) => {
+                  const isDone = completedChallenges.includes(ch.id);
+                  const matchesSearch =
+                    !searchQuery.trim() ||
+                    ch.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    module.title.toLowerCase().includes(searchQuery.toLowerCase());
+                  const matchesDiff =
+                    selectedDifficulty === 'Todas'
+                      ? true
+                      : selectedDifficulty === 'Bug'
+                      ? !!ch.isDebug
+                      : ch.difficulty === selectedDifficulty;
+                  const matchesStatus =
+                    statusFilter === 'Todas' ? true : statusFilter === 'Concluídas' ? isDone : !isDone;
+                  return matchesSearch && matchesDiff && matchesStatus;
+                });
+
+                const hasFilter =
+                  searchQuery.trim().length > 0 ||
+                  selectedDifficulty !== 'Todas' ||
+                  statusFilter !== 'Todas';
+
+                if (
+                  hasFilter &&
+                  filteredChallenges.length === 0 &&
+                  !(!searchQuery.trim() && selectedDifficulty === 'Todas' && module.isCapstoneModule)
+                ) {
+                  return null;
+                }
+
+                const modTotal = module.challenges.length;
+                const modCompleted = module.challenges.filter((c) => completedChallenges.includes(c.id)).length;
+                const modPercent = modTotal > 0 ? Math.round((modCompleted / modTotal) * 100) : 0;
+                const isExpanded = !!expandedModules[module.id] || hasFilter;
+
+                return (
+                  <div
+                    key={module.id}
+                    className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleModuleExpand(module.id)}
+                      className="w-full p-5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-emerald-400 flex items-center justify-center shrink-0">
+                          <ModuleIcon name={module.icon} className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-mono font-bold text-emerald-400">
+                              MÓDULO {module.number}
+                            </span>
+                            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                              {module.totalSyllabusLessons} aulas
+                            </span>
+                          </div>
+                          <h2 className="text-base sm:text-lg font-bold text-white">{module.title}</h2>
+                          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">{module.description}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 sm:min-w-[190px] justify-end">
+                        {!module.isCapstoneModule && (
+                          <div className="w-32">
+                            <div className="flex justify-between text-xs text-slate-400 mb-1">
+                              <span>{modCompleted}/{modTotal}</span>
+                              <span className="font-mono">{modPercent}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500" style={{ width: `${modPercent}%` }} />
+                            </div>
+                          </div>
+                        )}
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        )}
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-800 bg-slate-950/60 p-4 sm:p-5 space-y-2">
+                        {module.isCapstoneModule ? (
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-900 border border-emerald-500/30">
+                            <div>
+                              <h3 className="text-sm font-bold text-white">
+                                Projeto Integrador & Certificado Público
+                              </h3>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                Entregue seu projeto no GitHub e gere seu certificado com QR Code.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setActiveView('capstone')}
+                              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                            >
+                              Abrir Certificado
+                            </button>
+                          </div>
+                        ) : (
+                          filteredChallenges.map((ch, idx) => {
+                            const isDone = completedChallenges.includes(ch.id);
+                            return (
+                              <div
+                                key={ch.id}
+                                onClick={() => openChallenge(ch.id)}
+                                className="flex items-center justify-between p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 cursor-pointer transition-all"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {isDone ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                  ) : (
+                                    <Circle className="w-4 h-4 text-slate-600 shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-medium text-slate-100 truncate">
+                                        {idx + 1}. {ch.title}
+                                      </span>
+                                      {ch.isDebug && (
+                                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                          Bug Fix
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                      <span className="uppercase font-mono text-emerald-400">{ch.language}</span>
+                                      <span>•</span>
+                                      <span>{ch.difficulty}</span>
+                                      <span>•</span>
+                                      <span className="text-amber-400 font-mono">+50 XP</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <span className="text-xs text-slate-400 uppercase font-semibold">Ofensiva</span>
-                    <div className="text-2xl font-bold text-orange-400 mt-1">
-                      {streakData.count} dias
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Hoje: {Math.min(streakData.todayCompleted, 2)}/2
-                    </p>
-                  </div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <span className="text-xs text-slate-400 uppercase font-semibold">Aulas</span>
-                    <div className="text-2xl font-bold text-emerald-400 mt-1">
-                      {completedCount}/{totalInteractiveChallenges}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">{overallPercentage}% concluídas</p>
-                  </div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <span className="text-xs text-slate-400 uppercase font-semibold">
-                      Certificado
-                    </span>
-                    <div className="text-2xl font-bold text-white mt-1">
-                      {capstoneSubmission.submitted ? 'Emitido' : 'Pendente'}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Formação Full-Stack</p>
-                  </div>
-                </div>
-              </main>
-            )}
-          </div>
-        </div>
-      )}
+                );
+              })}
+            </div>
+          </main>
+        )}
+
+        {/* IDE INTERATIVA */}
+        {navState.activeView === 'workspace' && (
+          <ChallengeWorkspace
+            challenge={activeChallenge}
+            challengeIndex={activeChallengeIndex}
+            totalChallengesCount={allChallenges.length}
+            isCompleted={completedChallenges.includes(activeChallenge.id)}
+            onComplete={markChallengeComplete}
+            prevChallenge={prevChallenge}
+            nextChallenge={nextChallenge}
+            onSelectChallenge={openChallenge}
+            onBackToDashboard={() => setActiveView('dashboard')}
+            userStoragePrefix={userStoragePrefix}
+            currentUser={currentUser}
+            authToken={authToken}
+            onAddCommunityXP={(pts) => setCommunityXP((p) => p + pts)}
+          />
+        )}
+
+        {/* RANKING & CONQUISTAS */}
+        {navState.activeView === 'leaderboard' && (
+          <LeaderboardView
+            currentUser={currentUser}
+            totalXP={totalXP}
+            streakCount={streakData.count}
+            completedCount={completedCount}
+          />
+        )}
+
+        {/* PROJETO FINAL & CERTIFICADO */}
+        {navState.activeView === 'capstone' && (
+          <CapstoneSpecView
+            checks={capstoneChecks}
+            onToggleCheck={(id) => setCapstoneChecks((prev) => ({ ...prev, [id]: !prev[id] }))}
+            submission={capstoneSubmission}
+            onUpdateSubmission={setCapstoneSubmission}
+            completedChallengesCount={completedCount}
+            totalChallengesCount={totalInteractiveChallenges}
+            currentUser={currentUser}
+            authToken={authToken}
+            onEnqueueSync={enqueueSyncItem}
+          />
+        )}
+
+        {/* VALIDAÇÃO PÚBLICA DE CERTIFICADO */}
+        {navState.activeView === 'verify' && (
+          <PublicCertificateVerifierView initialCode={initialCertParam} />
+        )}
+
+        {/* PERFIL DO ALUNO */}
+        {navState.activeView === 'profile' && (
+          <StudentProfileView
+            currentUser={currentUser}
+            totalXP={totalXP}
+            studentLevel={studentLevel}
+            streakCount={streakData.count}
+            completedChallenges={completedChallenges}
+            allChallenges={allChallenges}
+            onOpenChallenge={openChallenge}
+            onOpenCapstone={() => setActiveView('capstone')}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
 // ============================================================================
-// SUB-COMPONENTE: IDE MULTI-ARQUIVOS, TUTOR IA CONTEXTUAL & MEMÓRIA AO VIVO
+// SUB-COMPONENTE: IDE INTERATIVA (EDITOR, PREVIEW, TESTES, TUTOR IA, FÓRUM)
 // ============================================================================
 function ChallengeWorkspace({
-  allChallenges,
-  activeChallengeId,
+  challenge,
+  challengeIndex,
+  totalChallengesCount,
+  isCompleted,
+  onComplete,
+  prevChallenge,
+  nextChallenge,
   onSelectChallenge,
-  completedChallenges,
-  onCompleteChallenge,
-  onGoToCapstone,
+  onBackToDashboard,
   userStoragePrefix,
   currentUser,
-  onEarnCommunityXP
+  authToken,
+  onAddCommunityXP
 }) {
-  const currentIndex = allChallenges.findIndex((c) => c.id === activeChallengeId);
-  const challenge = allChallenges[currentIndex] || allChallenges[0];
-  const prevChallenge = currentIndex > 0 ? allChallenges[currentIndex - 1] : null;
-  const nextChallenge =
-    currentIndex < allChallenges.length - 1 ? allChallenges[currentIndex + 1] : null;
-
-  // Regra: a opção de Próxima Aula só é liberada após a aula atual ter sido completada
-  const isAlreadyCompleted = completedChallenges.includes(challenge.id);
-
-  const storageKey = `${userStoragePrefix}_files_${challenge.id}`;
-
-  const [filesMap, setFilesMap] = useState(() => {
-    try {
-      const allSavedCodes = JSON.parse(localStorage.getItem('nexusdev_codigos') || '{}');
-      const userFiles = allSavedCodes[storageKey];
-      if (userFiles && typeof userFiles === 'object' && Object.keys(userFiles).length > 0) {
-        return userFiles;
-      }
-    } catch {}
-    return { ...challenge.files };
-  });
-
-  const fileNames = useMemo(() => Object.keys(filesMap), [filesMap]);
-  const [activeFile, setActiveFile] = useState(() => fileNames[0] || 'index.html');
-
-  useEffect(() => {
-    if (fileNames.length > 0 && !fileNames.includes(activeFile)) {
-      setActiveFile(fileNames[0]);
-    }
-  }, [fileNames, activeFile]);
-
-  const [leftTab, setLeftTab] = useState('instrucoes');
-  const [rightBottomTab, setRightBottomTab] = useState(
-    challenge.language === 'html' ? 'preview' : 'console'
-  );
-
+  const fileNames = useMemo(() => Object.keys(challenge.files || {}), [challenge]);
+  const [activeFileName, setActiveFileName] = useState(fileNames[0] || 'index.html');
+  const [filesMap, setFilesMap] = useState(challenge.files || {});
   const [testResults, setTestResults] = useState([]);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [saveIndicator, setSaveIndicator] = useState('Salvo no navegador');
+  const [allPassed, setAllPassed] = useState(false);
   const [showHint, setShowHint] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [tutorInsights, setTutorInsights] = useState([]);
-  const [tutorLoading, setTutorLoading] = useState(false);
+  const [bottomTab, setBottomTab] = useState(challenge.language === 'html' ? 'preview' : 'tests');
+  const [mobilePanel, setMobilePanel] = useState('code');
 
-  // Estado do Inspetor Dinâmico de Memória
-  const [customTraceArgsInput, setCustomTraceArgsInput] = useState(() =>
+  const [aiTips, setAiTips] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const [traceArgsInput, setTraceArgsInput] = useState(
     JSON.stringify(challenge.defaultTraceArgs || [10])
   );
+  const [memoryReport, setMemoryReport] = useState(null);
 
-  useEffect(() => {
-    setCustomTraceArgsInput(JSON.stringify(challenge.defaultTraceArgs || [10]));
-  }, [challenge.id, challenge.defaultTraceArgs]);
-
-  // Fórum / Discussão por Lição
-  const forumStorageKey = `nexusdev_forum_${challenge.id}`;
-  const [forumPosts, setForumPosts] = useState([]);
-  const [newPostText, setNewPostText] = useState('');
-
-  useEffect(() => {
-    try {
-      const savedForum = localStorage.getItem(forumStorageKey);
-      const customPosts = savedForum ? JSON.parse(savedForum) : [];
-      setForumPosts([...(challenge.communityPosts || []), ...customPosts]);
-    } catch {
-      setForumPosts(challenge.communityPosts || []);
-    }
-  }, [challenge.id, challenge.communityPosts, forumStorageKey]);
-
-  const handleAddForumPost = (e) => {
-    e.preventDefault();
-    if (!newPostText.trim()) return;
-    const post = {
-      id: `post_${Date.now()}`,
-      author: currentUser ? currentUser.name : 'Aluno Visitante',
-      badge: currentUser ? 'Comunidade' : 'Visitante',
-      time: 'agora mesmo',
-      text: newPostText.trim()
-    };
-    try {
-      const savedForum = localStorage.getItem(forumStorageKey);
-      const customPosts = savedForum ? JSON.parse(savedForum) : [];
-      localStorage.setItem(forumStorageKey, JSON.stringify([...customPosts, post]));
-    } catch {}
-    setForumPosts((prev) => [...prev, post]);
-    setNewPostText('');
-    onEarnCommunityXP(15);
-  };
-
-  const prevChallengeIdRef = useRef(challenge.id);
-  useEffect(() => {
-    if (prevChallengeIdRef.current !== challenge.id) {
-      prevChallengeIdRef.current = challenge.id;
-      let initialFiles = { ...challenge.files };
-      try {
-        const allSavedCodes = JSON.parse(localStorage.getItem('nexusdev_codigos') || '{}');
-        const saved = allSavedCodes[storageKey];
-        if (saved && Object.keys(saved).length > 0) {
-          initialFiles = saved;
-        }
-      } catch {}
-      setFilesMap(initialFiles);
-      setActiveFile(Object.keys(initialFiles)[0]);
-      setTestResults([]);
-      setTutorInsights([]);
-      setShowHint(false);
-      setShowResetConfirm(false);
-      setLeftTab('instrucoes');
-      setRightBottomTab(challenge.language === 'html' ? 'preview' : 'console');
-    }
-  }, [challenge.id, challenge.files, challenge.language, storageKey]);
-
-  useEffect(() => {
-    setSaveIndicator('Salvando...');
-    const timer = setTimeout(() => {
-      try {
-        const allSavedCodes = JSON.parse(localStorage.getItem('nexusdev_codigos') || '{}');
-        allSavedCodes[storageKey] = filesMap;
-        localStorage.setItem('nexusdev_codigos', JSON.stringify(allSavedCodes));
-        setSaveIndicator('Salvo automaticamente');
-      } catch {
-        setSaveIndicator('Erro ao salvar');
-      }
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [filesMap, storageKey]);
-
-  const currentCode = filesMap[activeFile] ?? '';
-
-  const updateCurrentFileCode = (newVal) => {
-    setFilesMap((prev) => ({
-      ...prev,
-      [activeFile]: newVal
-    }));
-  };
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentError, setCommentError] = useState('');
 
   const textareaRef = useRef(null);
   const preRef = useRef(null);
 
-  const handleScrollSync = () => {
-    if (textareaRef.current && preRef.current) {
-      preRef.current.scrollTop = textareaRef.current.scrollTop;
-      preRef.current.scrollLeft = textareaRef.current.scrollLeft;
+  useEffect(() => {
+    const initialFiles = challenge.files || {};
+    const names = Object.keys(initialFiles);
+    setActiveFileName(names[0] || 'index.html');
+
+    try {
+      const savedDraft = JSON.parse(
+        localStorage.getItem(`${userStoragePrefix}_draft_${challenge.id}`) || 'null'
+      );
+      if (savedDraft && typeof savedDraft === 'object') {
+        setFilesMap({ ...initialFiles, ...savedDraft });
+      } else {
+        setFilesMap(initialFiles);
+      }
+    } catch {
+      setFilesMap(initialFiles);
     }
+
+    setTestResults([]);
+    setAllPassed(false);
+    setShowHint(false);
+    setAiTips([]);
+    setMemoryReport(null);
+    setTraceArgsInput(JSON.stringify(challenge.defaultTraceArgs || [10]));
+
+    try {
+      const savedComments = JSON.parse(
+        localStorage.getItem(`nexusdev_comments_${challenge.id}`) || '[]'
+      );
+      setComments([...(challenge.communityPosts || []), ...savedComments]);
+    } catch {
+      setComments(challenge.communityPosts || []);
+    }
+
+    let active = true;
+    fetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!active || !Array.isArray(data?.comments) || data.comments.length === 0) return;
+        setComments((prev) => {
+          const ids = new Set(data.comments.map((c) => c.id));
+          return [...data.comments, ...prev.filter((p) => !ids.has(p.id))];
+        });
+      })
+      .catch(() => {});
+
+    setBottomTab(challenge.language === 'html' ? 'preview' : 'tests');
+
+    return () => {
+      active = false;
+    };
+  }, [challenge, userStoragePrefix]);
+
+  const handleCodeChange = (newValue) => {
+    const updated = { ...filesMap, [activeFileName]: newValue };
+    setFilesMap(updated);
+    try {
+      localStorage.setItem(`${userStoragePrefix}_draft_${challenge.id}`, JSON.stringify(updated));
+    } catch {}
   };
 
-  const handleKeyDown = (e) => {
-    const start = e.target.selectionStart;
-    const end = e.target.selectionEnd;
+  const handleResetCode = () => {
+    setFilesMap(challenge.files || {});
+    setTestResults([]);
+    setAllPassed(false);
+    try {
+      localStorage.removeItem(`${userStoragePrefix}_draft_${challenge.id}`);
+    } catch {}
+  };
 
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const updated = currentCode.substring(0, start) + '  ' + currentCode.substring(end);
-      updateCurrentFileCode(updated);
-      requestAnimationFrame(() => {
-        if (textareaRef.current) {
-          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
-        }
-      });
+  const insertSymbol = (sym) => {
+    const el = textareaRef.current;
+    const current = filesMap[activeFileName] || '';
+    if (!el) {
+      handleCodeChange(current + sym);
       return;
     }
-
-    const pairs = { '{': '}', '[': ']', '(': ')', '"': '"', "'": "'" };
-    if (pairs[e.key] && start === end) {
-      e.preventDefault();
-      const closing = pairs[e.key];
-      const updated =
-        currentCode.substring(0, start) + e.key + closing + currentCode.substring(end);
-      updateCurrentFileCode(updated);
-      requestAnimationFrame(() => {
-        if (textareaRef.current) {
-          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 1;
-        }
-      });
-    }
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + sym + current.slice(end);
+    handleCodeChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + sym.length, start + sym.length);
+    });
   };
 
-  const combinedHtmlDocument = useMemo(() => {
+  const previewSrcDoc = useMemo(() => {
     if (challenge.language !== 'html') return '';
     const htmlPart = filesMap['index.html'] || '';
     const cssPart = filesMap['style.css'] || '';
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${cssPart}</style></head><body>${htmlPart}</body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><style>${cssPart}</style></head><body>${htmlPart}</body></html>`;
   }, [challenge.language, filesMap]);
 
   const runTests = () => {
-    setIsEvaluating(true);
-    setRightBottomTab('console');
     const results = [];
-
     const assert = {
-      strictEqual: (actual, expected, msg) => {
+      strictEqual: (actual, expected) => {
         if (actual !== expected) {
-          throw new Error(
-            msg || `Esperado ${JSON.stringify(expected)}, mas o código retornou ${JSON.stringify(actual)}`
-          );
+          throw new Error(`Esperado ${JSON.stringify(expected)}, mas recebeu ${JSON.stringify(actual)}.`);
         }
       },
-      deepEqual: (actual, expected, msg) => {
+      deepEqual: (actual, expected) => {
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-          throw new Error(
-            msg || `Esperado ${JSON.stringify(expected)}, mas o código retornou ${JSON.stringify(actual)}`
-          );
-        }
-      },
-      ok: (condition, msg) => {
-        if (!condition) {
-          throw new Error(msg || 'A condição de validação falhou.');
+          throw new Error(`Esperado ${JSON.stringify(expected)}, mas recebeu ${JSON.stringify(actual)}.`);
         }
       }
     };
@@ -3667,116 +3390,92 @@ function ChallengeWorkspace({
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
       iframe.style.left = '-9999px';
-      iframe.style.top = '0';
       iframe.style.width = '800px';
       iframe.style.height = '600px';
-      iframe.style.visibility = 'hidden';
       document.body.appendChild(iframe);
 
       try {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (!doc) {
-          throw new Error('Não foi possível inicializar o ambiente de visualização HTML.');
-        }
+        const doc = iframe.contentDocument;
+        const win = iframe.contentWindow;
         doc.open();
-        doc.write(combinedHtmlDocument);
+        doc.write(previewSrcDoc);
         doc.close();
 
         const rawCss = filesMap['style.css'] || '';
         const rawHtml = filesMap['index.html'] || '';
 
-        challenge.tests.forEach((t) => {
+        for (const t of challenge.tests || []) {
           try {
-            t.testFn(doc, iframe.contentWindow, rawCss, rawHtml);
+            t.testFn(doc, win, rawCss, rawHtml);
             results.push({ id: t.id, description: t.description, passed: true });
           } catch (err) {
             results.push({
               id: t.id,
               description: t.description,
               passed: false,
-              error: err.message
+              error: err?.message || 'Critério não atendido.'
             });
           }
-        });
-      } catch (err) {
-        results.push({
-          id: 'err',
-          description: 'Erro ao renderizar HTML/CSS',
-          passed: false,
-          error: err.message
-        });
-      } finally {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
         }
+      } finally {
+        document.body.removeChild(iframe);
       }
     } else {
+      const jsCode = Object.values(filesMap || {}).join('\n');
+      const fnName = challenge.targetFunction;
+
+      let userFn = null;
+      let compileError = null;
       try {
-        const combinedJs = Object.values(filesMap).join('\n');
-        const fnName = challenge.targetFunction;
-
-        if (!fnName) {
-          throw new Error('Configuração de função alvo ausente neste desafio.');
-        }
-
         const factory = new Function(
-          `"use strict";\n${combinedJs};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
+          `"use strict";\n${jsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
         );
-        const userFn = factory();
-
+        userFn = factory();
         if (typeof userFn !== 'function') {
-          throw new Error(
-            `A função "${fnName}" não foi encontrada. Mantenha o nome original da função.`
-          );
+          compileError = `A função "${fnName}" não foi encontrada ou não é uma função.`;
         }
+      } catch (err) {
+        compileError = err?.message || 'Erro de sintaxe no código.';
+      }
 
-        challenge.tests.forEach((t) => {
-          try {
-            t.testFn(userFn, assert);
-            results.push({ id: t.id, description: t.description, passed: true });
-          } catch (err) {
-            results.push({
-              id: t.id,
-              description: t.description,
-              passed: false,
-              error: err.message
-            });
-          }
-        });
-      } catch (syntaxErr) {
-        results.push({
-          id: 'syntax',
-          description: 'Erro de Sintaxe ou Execução',
-          passed: false,
-          error: syntaxErr.message
-        });
+      for (const t of challenge.tests || []) {
+        if (compileError) {
+          results.push({ id: t.id, description: t.description, passed: false, error: compileError });
+          continue;
+        }
+        try {
+          t.testFn(userFn, assert);
+          results.push({ id: t.id, description: t.description, passed: true });
+        } catch (err) {
+          results.push({
+            id: t.id,
+            description: t.description,
+            passed: false,
+            error: err?.message || 'Erro ao executar o teste.'
+          });
+        }
       }
     }
 
     setTestResults(results);
-    setTutorInsights(analyzeStudentCodeLocal(challenge, filesMap, results));
-    setIsEvaluating(false);
+    const passedAll = results.length > 0 && results.every((r) => r.passed);
+    setAllPassed(passedAll);
+    setBottomTab('tests');
+    setMobilePanel('output');
 
-    if (results.length > 0 && results.every((r) => r.passed)) {
-      onCompleteChallenge(challenge.id, filesMap);
+    if (passedAll) {
+      onComplete(challenge.id, filesMap);
     }
   };
 
-  // Só avança se a aula atual já tiver sido concluída e verificada com sucesso
-  const handleGoNextOnlyIfCompleted = () => {
-    if (!isAlreadyCompleted) return;
-    if (nextChallenge) {
-      onSelectChallenge(nextChallenge.id);
-    } else {
-      onGoToCapstone();
-    }
-  };
+  const handleAskTutor = async () => {
+    setAiLoading(true);
+    setBottomTab('tutor');
+    setMobilePanel('output');
 
-  const handleOpenSmartTutor = async () => {
-    setRightBottomTab('tutor');
     const localTips = analyzeStudentCodeLocal(challenge, filesMap, testResults);
-    setTutorInsights(localTips);
-    setTutorLoading(true);
+    const failedTests = testResults.filter((r) => !r.passed);
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/tutor/analyze`, {
         method: 'POST',
@@ -3787,965 +3486,730 @@ function ChallengeWorkspace({
           targetFunction: challenge.targetFunction,
           instructions: challenge.instructions,
           filesMap,
-          failedTests: testResults.filter((r) => !r.passed)
+          failedTests
         })
       });
       const data = await res.json();
-      if (data && Array.isArray(data.tips) && data.tips.length > 0) {
-        setTutorInsights(data.tips);
+      if (res.ok && Array.isArray(data?.tips) && data.tips.length > 0) {
+        setAiTips(data.tips);
+      } else {
+        setAiTips(localTips);
       }
     } catch {
-      // Mantém dicas locais caso o servidor esteja offline
+      setAiTips(localTips);
     } finally {
-      setTutorLoading(false);
+      setAiLoading(false);
     }
   };
 
-  const handleResetCode = () => {
-    const freshFiles = { ...challenge.files };
-    setFilesMap(freshFiles);
-    setActiveFile(Object.keys(freshFiles)[0]);
-    try {
-      const allSavedCodes = JSON.parse(localStorage.getItem('nexusdev_codigos') || '{}');
-      delete allSavedCodes[storageKey];
-      localStorage.setItem('nexusdev_codigos', JSON.stringify(allSavedCodes));
-    } catch {}
-    setTestResults([]);
-    setTutorInsights([]);
-    setShowResetConfirm(false);
+  const handleRunMemory = () => {
+    const report = runDynamicMemoryInspector(challenge, filesMap, traceArgsInput);
+    setMemoryReport(report);
   };
 
-  const dynamicTraceInfo = useMemo(() => {
-    if (rightBottomTab !== 'memoria' || challenge.language === 'html') return null;
-    return runDynamicMemoryInspector(challenge, filesMap, customTraceArgsInput);
-  }, [rightBottomTab, challenge, filesMap, customTraceArgsInput]);
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    setCommentError('');
+    if (!currentUser) {
+      setCommentError('Faça login ou cadastre-se para publicar na comunidade.');
+      return;
+    }
+    const clean = commentText.trim();
+    if (!clean) {
+      setCommentError('Escreva uma dúvida ou dica antes de enviar.');
+      return;
+    }
 
-  const allPassed = testResults.length > 0 && testResults.every((r) => r.passed);
-  const lineCount = currentCode.split('\n').length;
-  const highlightedHtml = useMemo(
-    () => highlightCode(currentCode, activeFile),
-    [currentCode, activeFile]
-  );
+    let createdPost = {
+      id: `post-${Date.now()}`,
+      author: currentUser.name,
+      badge: 'Aluno NexusDev',
+      time: 'agora',
+      text: clean
+    };
+
+    if (authToken) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ text: clean })
+        });
+        const data = await res.json();
+        if (res.ok && data?.comment) {
+          createdPost = data.comment;
+        }
+      } catch {}
+    }
+
+    const nextList = [createdPost, ...comments];
+    setComments(nextList);
+    setCommentText('');
+
+    const extraOnly = nextList.filter(
+      (item) => !(challenge.communityPosts || []).some((base) => base.id === item.id)
+    );
+    try {
+      localStorage.setItem(`nexusdev_comments_${challenge.id}`, JSON.stringify(extraOnly));
+    } catch {}
+
+    if (typeof onAddCommunityXP === 'function') {
+      onAddCommunityXP(10);
+    }
+  };
+
+  const lessonDoneNow = isCompleted || allPassed;
+  const quickSymbols =
+    challenge.language === 'html'
+      ? ['<', '>', '/', '=', '"', '{', '}', ':', ';']
+      : ['{', '}', '(', ')', '[', ']', ';', '=>', '==='];
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Barra Superior do Workspace */}
-      <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            onClick={() => prevChallenge && onSelectChallenge(prevChallenge.id)}
-            disabled={!prevChallenge}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-slate-300 transition-colors"
-            title="Aula Anterior"
+            onClick={onBackToDashboard}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 flex items-center gap-1 shrink-0"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span>Trilha</span>
           </button>
-
-          <select
-            value={challenge.id}
-            onChange={(e) => onSelectChallenge(e.target.value)}
-            className="bg-slate-950 border border-slate-700 text-slate-200 text-xs sm:text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 max-w-[230px] sm:max-w-md"
-          >
-            {allChallenges.map((c, index) => (
-              <option key={c.id} value={c.id}>
-                {completedChallenges.includes(c.id) ? '✓ ' : ''}
-                Mód {c.moduleNumber} • Aula {index + 1}: {c.title}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            onClick={handleGoNextOnlyIfCompleted}
-            disabled={!isAlreadyCompleted || !nextChallenge}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-colors"
-            title={
-              isAlreadyCompleted
-                ? 'Próxima Aula'
-                : 'Complete a aula atual para liberar a próxima aula'
-            }
-          >
-            {isAlreadyCompleted ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <Lock className="w-4 h-4 text-amber-400" />
-            )}
-          </button>
-
-          {isAlreadyCompleted && (
-            <span className="hidden xl:inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Concluída (+50 XP)
-            </span>
-          )}
+          <span className="text-xs font-mono text-emerald-400 shrink-0">
+            Mód. {challenge.moduleNumber} • {challengeIndex + 1}/{totalChallengesCount}
+          </span>
+          <h1 className="text-xs sm:text-sm font-bold text-white truncate">{challenge.title}</h1>
         </div>
 
-        {/* Botões de Ação */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="hidden md:inline text-xs text-slate-400 font-mono mr-1">
-            {saveIndicator}
-          </span>
-
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={handleOpenSmartTutor}
-            className="px-3 py-1.5 rounded-lg bg-purple-950/70 hover:bg-purple-900/70 text-purple-200 border border-purple-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            disabled={!prevChallenge}
+            onClick={() => prevChallenge && onSelectChallenge(prevChallenge.id)}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs text-slate-200 flex items-center gap-1"
           >
-            <Brain className="w-3.5 h-3.5 text-purple-400" />
-            <span>Tutor IA</span>
-          </button>
-
-          {!showResetConfirm ? (
-            <button
-              type="button"
-              onClick={() => setShowResetConfirm(true)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Resetar</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-1.5 bg-rose-950/60 border border-rose-800/60 px-2.5 py-1 rounded-lg">
-              <span className="text-xs text-rose-200">Restaurar?</span>
-              <button
-                type="button"
-                onClick={handleResetCode}
-                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded"
-              >
-                Sim
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded"
-              >
-                Não
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={runTests}
-            disabled={isEvaluating}
-            className="px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 border border-emerald-500/50 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>{isEvaluating ? 'Verificando...' : 'Verificar Código'}</span>
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Anterior</span>
           </button>
 
           <button
             type="button"
-            onClick={handleGoNextOnlyIfCompleted}
-            disabled={!isAlreadyCompleted}
+            disabled={!nextChallenge || !lessonDoneNow}
+            onClick={() => nextChallenge && lessonDoneNow && onSelectChallenge(nextChallenge.id)}
             title={
-              isAlreadyCompleted
-                ? 'Avançar para a próxima aula'
-                : 'Complete e verifique a aula atual para liberar a Próxima Aula'
+              !lessonDoneNow
+                ? 'Conclua e passe nos testes desta aula para desbloquear a próxima!'
+                : 'Avançar para a próxima aula'
             }
-            className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all ${
-              isAlreadyCompleted
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/50 cursor-pointer'
-                : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              lessonDoneNow && nextChallenge
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                : 'bg-slate-800/80 text-slate-500 border border-slate-700 cursor-not-allowed'
             }`}
           >
-            {isAlreadyCompleted ? (
-              <Check className="w-4 h-4 stroke-[2.5]" />
-            ) : (
-              <Lock className="w-3.5 h-3.5" />
-            )}
-            <span>{nextChallenge ? 'Próxima Aula' : 'Ir para Certificado'}</span>
+            {!lessonDoneNow && <Lock className="w-3 h-3 text-amber-400" />}
+            <span>Próxima Aula</span>
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Aviso de bloqueio da Próxima Aula enquanto não concluída */}
-      {!isAlreadyCompleted && (
-        <div className="bg-amber-950/30 border-b border-amber-500/25 px-4 py-2 text-xs text-amber-200 flex items-center justify-center gap-2">
-          <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>
-            A opção <strong>Próxima Aula</strong> será liberada assim que você concluir este
-            desafio e clicar em <strong>Verificar Código</strong> com todos os testes aprovados.
-          </span>
-        </div>
-      )}
+      <div className="lg:hidden grid grid-cols-3 bg-slate-950 border-b border-slate-800 p-1 gap-1 text-xs">
+        {[
+          { id: 'instructions', label: '1. Instruções' },
+          { id: 'code', label: '2. Código' },
+          { id: 'output', label: '3. Resultado' }
+        ].map((tab) => (
+          <button
+            type="button"
+            key={tab.id}
+            onClick={() => setMobilePanel(tab.id)}
+            className={`py-1.5 rounded-lg font-semibold ${
+              mobilePanel === tab.id ? 'bg-emerald-600 text-white' : 'text-slate-400'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Tela Dividida (Split-Screen) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-        {/* COLUNA ESQUERDA: Abas (Instruções vs. Comunidade) */}
-        <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-slate-800 bg-slate-900/40 flex flex-col overflow-hidden">
-          <div className="flex border-b border-slate-800 bg-slate-900/80 px-4 pt-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setLeftTab('instrucoes')}
-              className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
-                leftTab === 'instrucoes'
-                  ? 'border-emerald-400 text-emerald-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Aula & Critérios</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setLeftTab('comunidade')}
-              className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
-                leftTab === 'comunidade'
-                  ? 'border-emerald-400 text-emerald-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Comunidade ({forumPosts.length})</span>
-            </button>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-125px)]">
+        <section
+          className={`${
+            mobilePanel === 'instructions' ? 'block' : 'hidden'
+          } lg:block lg:col-span-5 border-r border-slate-800 p-4 sm:p-6 overflow-y-auto space-y-5 bg-slate-900/40`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-mono uppercase px-2.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              {challenge.language} • {challenge.difficulty}
+            </span>
+            {lessonDoneNow ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Aula Concluída (+50 XP)</span>
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400 font-mono">+{challenge.xp} XP</span>
+            )}
           </div>
 
-          {leftTab === 'instrucoes' ? (
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
-              <div>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">
-                  <span>Módulo {challenge.moduleNumber}</span>
-                  <span>•</span>
-                  <span>{challenge.difficulty}</span>
-                  <span>•</span>
-                  <span className="text-amber-400">+50 XP</span>
-                  {challenge.isDebug && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px]">
-                      <Bug className="w-3 h-3" /> Debugging
-                    </span>
-                  )}
-                </div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white">{challenge.title}</h1>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Conceito & Explicação</span>
-                </h2>
-                <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-                  {challenge.theory}
-                </div>
-              </div>
-
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                  Desafio Prático
-                </h2>
-                <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-line bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                  {challenge.instructions}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setShowHint(!showHint)}
-                  className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1.5 transition-colors"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                  <span>{showHint ? 'Ocultar Dica' : 'Ver Dica Rápida'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleOpenSmartTutor}
-                  className="text-xs font-medium text-purple-400 hover:text-purple-300 flex items-center gap-1.5 transition-colors"
-                >
-                  <Brain className="w-4 h-4" />
-                  <span>Analisar meu código com Tutor IA</span>
-                </button>
-              </div>
-
-              {showHint && (
-                <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/40 text-xs text-amber-200 leading-relaxed">
-                  💡 {challenge.hint}
-                </div>
-              )}
-
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
-                  Critérios de Aceitação Automatizados
-                </h3>
-                <ul className="space-y-2">
-                  {challenge.tests.map((test) => {
-                    const matchedResult = testResults.find((r) => r.id === test.id);
-                    return (
-                      <li
-                        key={test.id}
-                        className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 transition-colors ${
-                          matchedResult
-                            ? matchedResult.passed
-                              ? 'bg-emerald-950/30 border-emerald-800/60 text-emerald-200'
-                              : 'bg-rose-950/30 border-rose-800/60 text-rose-200'
-                            : 'bg-slate-900 border-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {matchedResult ? (
-                          matchedResult.passed ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                          ) : (
-                            <X className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                          )
-                        ) : (
-                          <Circle className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
-                        )}
-                        <span>{test.description}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+          <div className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Conceito da Aula
+            </h2>
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs sm:text-sm text-slate-200 whitespace-pre-line leading-relaxed">
+              {challenge.theory}
             </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col justify-between gap-4">
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-base font-bold text-white">Discussão & Dicas da Turma</h2>
-                  <p className="text-xs text-slate-400">
-                    Compartilhe dúvidas ou ajude colegas nesta aula (+15 XP por contribuição)
-                  </p>
-                </div>
+          </div>
 
-                {forumPosts.length === 0 ? (
-                  <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 text-center text-xs text-slate-400">
-                    Ainda não há comentários nesta lição. Seja o primeiro a compartilhar uma dica!
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {forumPosts.map((post) => (
-                      <div
-                        key={post.id}
-                        className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-200">{post.author}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold">
-                              {post.badge}
-                            </span>
-                          </div>
-                          <span className="text-[11px] text-slate-500">{post.time}</span>
-                        </div>
-                        <p className="text-xs text-slate-300 leading-relaxed">{post.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <form
-                onSubmit={handleAddForumPost}
-                className="pt-3 border-t border-slate-800 space-y-2"
-              >
-                <textarea
-                  rows={2}
-                  value={newPostText}
-                  onChange={(e) => setNewPostText(e.target.value)}
-                  placeholder="Escreva uma dúvida ou dica construtiva para os outros alunos..."
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-emerald-500 resize-none"
-                />
-                <button
-                  type="submit"
-                  className="w-full py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Publicar na Comunidade (+15 XP)</span>
-                </button>
-              </form>
+          <div className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+              Sua Missão Prática
+            </h2>
+            <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-xs sm:text-sm text-white leading-relaxed">
+              {challenge.instructions}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* COLUNA DIREITA: Editor Multi-Arquivos + Ferramentas Inferiores */}
-        <div className="lg:col-span-7 flex flex-col h-[640px] lg:h-auto overflow-hidden bg-slate-950">
-          {/* Abas de Arquivos do Projeto */}
-          <div className="bg-slate-900 px-3 pt-2 border-b border-slate-800 flex items-center justify-between gap-2 overflow-x-auto">
-            <div className="flex items-center gap-1">
-              {fileNames.map((fName) => {
-                const isActive = fName === activeFile;
-                return (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowHint(!showHint)}
+              className="text-xs text-amber-300 hover:text-amber-200 flex items-center gap-1.5 font-medium"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>{showHint ? 'Ocultar Dica' : 'Precisa de uma dica?'}</span>
+            </button>
+            {showHint && (
+              <div className="mt-2 p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200 font-mono">
+                {challenge.hint}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section
+          className={`${
+            mobilePanel !== 'instructions' ? 'flex' : 'hidden'
+          } lg:flex lg:col-span-7 flex-col bg-slate-950`}
+        >
+          <div
+            className={`${
+              mobilePanel === 'code' ? 'flex' : 'hidden'
+            } lg:flex flex-col flex-1 min-h-[280px]`}
+          >
+            <div className="bg-slate-900 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {fileNames.map((fname) => (
                   <button
                     type="button"
-                    key={fName}
-                    onClick={() => setActiveFile(fName)}
-                    className={`px-3 py-1.5 rounded-t-lg text-xs font-mono flex items-center gap-1.5 border-t border-x transition-colors ${
-                      isActive
-                        ? 'bg-slate-950 border-slate-700 text-emerald-300 font-semibold'
-                        : 'bg-slate-900/50 border-transparent text-slate-400 hover:text-slate-200'
+                    key={fname}
+                    onClick={() => setActiveFileName(fname)}
+                    className={`px-3 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 ${
+                      activeFileName === fname
+                        ? 'bg-slate-800 text-emerald-300 border border-emerald-500/40'
+                        : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    <FileCode2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{fName}</span>
+                    <FileCode2 className="w-3.5 h-3.5" />
+                    <span>{fname}</span>
                   </button>
-                );
-              })}
-            </div>
-
-            <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300 shrink-0 mb-1">
-              {fileNames.length > 1 ? `${fileNames.length} arquivos` : challenge.language}
-            </span>
-          </div>
-
-          {/* Área de Edição com Realce de Sintaxe Sincronizado */}
-          <div className="flex-1 flex overflow-hidden relative bg-slate-950">
-            <div
-              aria-hidden="true"
-              className="select-none py-4 px-3 text-right font-mono text-xs sm:text-sm text-slate-600 bg-slate-900/40 border-r border-slate-800/80 leading-relaxed overflow-hidden"
-            >
-              {Array.from({ length: Math.max(lineCount, 14) }).map((_, i) => (
-                <div key={i}>{i + 1}</div>
-              ))}
-            </div>
-
-            <div className="relative flex-1 overflow-hidden">
-              <pre
-                ref={preRef}
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 m-0 p-4 font-mono text-xs sm:text-sm leading-relaxed whitespace-pre overflow-hidden text-slate-100"
-                dangerouslySetInnerHTML={{ __html: highlightedHtml + '\n' }}
-              />
-              <textarea
-                ref={textareaRef}
-                value={currentCode}
-                onChange={(e) => updateCurrentFileCode(e.target.value)}
-                onScroll={handleScrollSync}
-                onKeyDown={handleKeyDown}
-                spellCheck="false"
-                autoCapitalize="off"
-                autoComplete="off"
-                autoCorrect="off"
-                className="absolute inset-0 w-full h-full p-4 bg-transparent text-transparent caret-emerald-400 font-mono text-xs sm:text-sm resize-none focus:outline-none leading-relaxed overflow-auto whitespace-pre selection:bg-emerald-500/30"
-              />
-            </div>
-          </div>
-
-          {/* Banner de Sucesso ao Passar nos Testes */}
-          {(allPassed || isAlreadyCompleted) && (
-            <div className="bg-emerald-950/90 border-t border-b border-emerald-500/40 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">
-                    Excelente! Aula concluída (+50 XP) — Próxima Aula desbloqueada!
-                  </p>
-                  <p className="text-xs text-emerald-300">
-                    Progresso e ofensiva diária atualizados!
-                  </p>
-                </div>
+                ))}
               </div>
 
-              <button
-                type="button"
-                onClick={handleGoNextOnlyIfCompleted}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5"
-              >
-                <span>{nextChallenge ? 'Próxima Aula' : 'Ir para o Projeto Final'}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          {/* Painel Inferior: Console, Preview HTML, Tutor IA e Inspetor Dinâmico de Memória */}
-          <div className="h-64 bg-slate-900 border-t border-slate-800 flex flex-col">
-            <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between gap-2 overflow-x-auto">
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setRightBottomTab('console')}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
-                    rightBottomTab === 'console'
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  onClick={handleResetCode}
+                  title="Restaurar código inicial"
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
                 >
-                  <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Console de Testes</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </button>
-
-                {challenge.language === 'html' && (
-                  <button
-                    type="button"
-                    onClick={() => setRightBottomTab('preview')}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
-                      rightBottomTab === 'preview'
-                        ? 'bg-slate-800 text-white'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Preview ao Vivo</span>
-                  </button>
-                )}
-
                 <button
                   type="button"
-                  onClick={handleOpenSmartTutor}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
-                    rightBottomTab === 'tutor'
-                      ? 'bg-purple-950/80 text-purple-200 border border-purple-500/30'
-                      : 'text-slate-400 hover:text-purple-300'
-                  }`}
+                  onClick={handleAskTutor}
+                  className="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-semibold flex items-center gap-1"
                 >
-                  <Brain className="w-3.5 h-3.5 text-purple-400" />
+                  <Brain className="w-3.5 h-3.5" />
                   <span>Tutor IA</span>
                 </button>
-
-                {challenge.language !== 'html' && challenge.targetFunction && (
-                  <button
-                    type="button"
-                    onClick={() => setRightBottomTab('memoria')}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
-                      rightBottomTab === 'memoria'
-                        ? 'bg-amber-950/70 text-amber-200 border border-amber-500/30'
-                        : 'text-slate-400 hover:text-amber-300'
-                    }`}
-                  >
-                    <Cpu className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Inspetor de Memória</span>
-                  </button>
-                )}
-              </div>
-
-              <span className="text-[11px] text-slate-500 font-mono shrink-0">
-                {testResults.length > 0
-                  ? `${testResults.filter((r) => r.passed).length}/${testResults.length} aprovados`
-                  : 'Pronto'}
-              </span>
-            </div>
-
-            {rightBottomTab === 'console' && (
-              <div className="flex-1 p-4 overflow-y-auto font-mono text-xs space-y-2">
-                {testResults.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-500 text-center">
-                    <Terminal className="w-6 h-6 mb-1.5 opacity-50" />
-                    <p>Clique em "Verificar Código" para testar sua solução.</p>
-                  </div>
-                ) : (
-                  testResults.map((res, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-2.5 rounded-lg border ${
-                        res.passed
-                          ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-300'
-                          : 'bg-rose-950/30 border-rose-800/50 text-rose-300'
-                      }`}
-                    >
-                      <div className="font-semibold flex items-center gap-2">
-                        <span>{res.passed ? '✔' : '✖'}</span>
-                        <span>{res.description}</span>
-                      </div>
-                      {res.error && (
-                        <p className="mt-1 text-rose-400 pl-5 break-words">{res.error}</p>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {rightBottomTab === 'preview' && (
-              <div className="flex-1 bg-white overflow-hidden">
-                <iframe
-                  title="Preview HTML/CSS ao Vivo"
-                  srcDoc={combinedHtmlDocument}
-                  sandbox="allow-scripts"
-                  className="w-full h-full border-0"
-                />
-              </div>
-            )}
-
-            {rightBottomTab === 'tutor' && (
-              <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-bold text-purple-300">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-purple-400" />
-                    <span>Análise Pedagógica Contextual</span>
-                  </div>
-                  {tutorLoading && (
-                    <span className="text-[11px] font-mono text-purple-400">Analisando...</span>
-                  )}
-                </div>
-                {tutorInsights.map((tip, i) => (
-                  <div
-                    key={i}
-                    className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 text-xs text-purple-100 leading-relaxed"
-                  >
-                    {tip}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {rightBottomTab === 'memoria' && (
-              <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-                <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                  <span className="font-mono text-amber-400 font-semibold">
-                    {challenge.targetFunction}(
-                  </span>
-                  <input
-                    type="text"
-                    value={customTraceArgsInput}
-                    onChange={(e) => setCustomTraceArgsInput(e.target.value)}
-                    placeholder='Ex: [100, 20]'
-                    className="flex-1 min-w-[140px] px-2.5 py-1 rounded bg-slate-900 border border-slate-700 font-mono text-xs text-white focus:outline-none focus:border-amber-500"
-                  />
-                  <span className="font-mono text-amber-400 font-semibold">)</span>
-                  <span className="text-[11px] text-slate-500">
-                    Edite os argumentos JSON para testar ao vivo
-                  </span>
-                </div>
-
-                {dynamicTraceInfo?.error ? (
-                  <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800/50 text-rose-300">
-                    {dynamicTraceInfo.error}
-                  </div>
-                ) : (
-                  dynamicTraceInfo && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-                        <div className="text-[11px] font-bold text-sky-400">
-                          1. Variáveis na Entrada
-                        </div>
-                        <div className="font-mono text-[11px] bg-slate-900 p-2 rounded text-slate-200">
-                          {Object.entries(dynamicTraceInfo.memorySnapshot).map(([k, v]) => (
-                            <div key={k}>
-                              {k}: <span className="text-emerald-300">{JSON.stringify(v)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-                        <div className="text-[11px] font-bold text-amber-400">
-                          2. Saída console.log()
-                        </div>
-                        <div className="font-mono text-[11px] bg-slate-900 p-2 rounded text-amber-200 max-h-20 overflow-y-auto">
-                          {dynamicTraceInfo.logs.length > 0
-                            ? dynamicTraceInfo.logs.map((l, idx) => <div key={idx}>&gt; {l}</div>)
-                            : 'Nenhum console.log() chamado'}
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-                        <div className="text-[11px] font-bold text-emerald-400">
-                          3. Retorno ({dynamicTraceInfo.durationMs} ms)
-                        </div>
-                        <div className="font-mono text-xs bg-slate-900 p-2 rounded text-emerald-300 font-bold break-all">
-                          return {dynamicTraceInfo.actualOutput}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// SUB-COMPONENTE: RANKING SEMANAL & CONQUISTAS DESBLOQUEÁVEIS (BADGES)
-// ============================================================================
-function LeaderboardAndBadgesView({
-  currentUser,
-  totalXP,
-  studentLevel,
-  streakData,
-  completedChallenges,
-  allChallenges
-}) {
-  const [leaders, setLeaders] = useState([]);
-  const [loadingLeaders, setLoadingLeaders] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    fetch(`${API_BASE_URL}/api/leaderboard`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!active) return;
-        const remote = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
-        const fallbackPeers = [
-          { rank: 1, name: 'Camila Rocha', xp: 4850, streak: 19, completedCount: 97 },
-          { rank: 2, name: 'Rafael Costa', xp: 3600, streak: 14, completedCount: 72 },
-          { rank: 3, name: 'Mariana Lima', xp: 2450, streak: 9, completedCount: 49 },
-          { rank: 4, name: 'Gabriel Souza', xp: 1750, streak: 6, completedCount: 35 },
-          { rank: 5, name: 'Bianca Alves', xp: 1200, streak: 5, completedCount: 24 }
-        ];
-
-        const merged = remote.length > 0 ? [...remote] : [...fallbackPeers];
-        const myName = currentUser?.name || 'Você (Visitante)';
-        const alreadyInList = merged.some((u) => u.name === myName);
-        if (!alreadyInList) {
-          merged.push({
-            rank: 0,
-            name: myName,
-            xp: totalXP,
-            streak: streakData.count,
-            completedCount: completedChallenges.length,
-            isCurrentUser: true
-          });
-        }
-
-        merged.sort((a, b) => b.xp - a.xp || b.streak - a.streak);
-        setLeaders(
-          merged.slice(0, 15).map((item, idx) => ({
-            ...item,
-            rank: idx + 1,
-            isCurrentUser: item.isCurrentUser || item.name === myName
-          }))
-        );
-      })
-      .catch(() => {
-        setLeaders([
-          {
-            rank: 1,
-            name: currentUser?.name || 'Você (Visitante)',
-            xp: totalXP,
-            streak: streakData.count,
-            completedCount: completedChallenges.length,
-            isCurrentUser: true
-          }
-        ]);
-      })
-      .finally(() => {
-        if (active) setLoadingLeaders(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [currentUser, totalXP, streakData.count, completedChallenges.length]);
-
-  const htmlCompleted = allChallenges.filter(
-    (c) => c.moduleNumber === 1 && completedChallenges.includes(c.id)
-  ).length;
-  const jsCompleted = allChallenges.filter(
-    (c) => c.moduleNumber === 2 && completedChallenges.includes(c.id)
-  ).length;
-  const debugCompleted = allChallenges.filter(
-    (c) => c.isDebug && completedChallenges.includes(c.id)
-  ).length;
-
-  const badges = [
-    {
-      id: 'b-first',
-      title: 'Primeiro Código',
-      desc: 'Concluiu sua primeira aula prática na NexusDev.',
-      unlocked: completedChallenges.length >= 1,
-      progress: `${Math.min(completedChallenges.length, 1)}/1 aula`
-    },
-    {
-      id: 'b-streak',
-      title: 'Consistência de Ferro',
-      desc: 'Manteve 3 dias ou mais de ofensiva diária.',
-      unlocked: streakData.count >= 3,
-      progress: `${Math.min(streakData.count, 3)}/3 dias`
-    },
-    {
-      id: 'b-html',
-      title: 'Arquiteto Web HTML/CSS',
-      desc: 'Completou pelo menos 15 aulas do Módulo 1.',
-      unlocked: htmlCompleted >= 15,
-      progress: `${Math.min(htmlCompleted, 15)}/15 aulas`
-    },
-    {
-      id: 'b-js',
-      title: 'Mestre da Lógica JS',
-      desc: 'Completou pelo menos 15 algoritmos em JavaScript.',
-      unlocked: jsCompleted >= 15,
-      progress: `${Math.min(jsCompleted, 15)}/15 aulas`
-    },
-    {
-      id: 'b-bug',
-      title: 'Caçador de Bugs',
-      desc: 'Resolveu pelo menos 3 desafios de Debugging.',
-      unlocked: debugCompleted >= 3,
-      progress: `${Math.min(debugCompleted, 3)}/3 bugs`
-    },
-    {
-      id: 'b-xp',
-      title: 'Veterano Full-Stack',
-      desc: 'Alcançou 1.000 XP acumulados na formação.',
-      unlocked: totalXP >= 1000,
-      progress: `${Math.min(totalXP, 1000)}/1000 XP`
-    }
-  ];
-
-  return (
-    <main className="space-y-8">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-2">
-            <Trophy className="w-3.5 h-3.5" />
-            <span>Gamificação & Comunidade NexusDev</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">
-            Ranking Semanal & Conquistas
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            Ganhe +50 XP por aula concluída e +15 XP por dicas na comunidade para subir no pódio.
-          </p>
-        </div>
-
-        <div className="bg-slate-950 border border-slate-800 rounded-xl px-5 py-3.5 text-center shrink-0">
-          <span className="text-[11px] uppercase tracking-wider text-slate-400">Sua Pontuação</span>
-          <div className="text-2xl font-bold text-amber-400 font-mono">{totalXP} XP</div>
-          <span className="text-xs text-emerald-400">Nível {studentLevel}</span>
-        </div>
-      </div>
-
-      {/* Medalhas / Conquistas */}
-      <section className="space-y-3">
-        <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-          <Medal className="w-5 h-5 text-emerald-400" />
-          <span>Suas Conquistas (Badges)</span>
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {badges.map((b) => (
-            <div
-              key={b.id}
-              className={`p-4 rounded-xl border transition-all flex items-start gap-3.5 ${
-                b.unlocked
-                  ? 'bg-emerald-950/25 border-emerald-500/40'
-                  : 'bg-slate-900/70 border-slate-800 opacity-75'
-              }`}
-            >
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  b.unlocked
-                    ? 'bg-emerald-500 text-slate-950'
-                    : 'bg-slate-800 text-slate-500'
-                }`}
-              >
-                <Star className="w-5 h-5 fill-current" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-white truncate">{b.title}</h3>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-300">
-                    {b.progress}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">{b.desc}</p>
+                <button
+                  type="button"
+                  onClick={runTests}
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Verificar Código</span>
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Pódio Top 15 */}
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <Crown className="w-5 h-5 text-amber-400" />
-            <span>Top Estudantes da Semana</span>
-          </h2>
-          {loadingLeaders && (
-            <span className="text-xs font-mono text-slate-400">Sincronizando ranking...</span>
-          )}
-        </div>
+            <div className="bg-slate-900/60 border-b border-slate-800 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+              <span className="text-[10px] text-slate-500 uppercase font-mono shrink-0">Atalhos:</span>
+              {quickSymbols.map((sym) => (
+                <button
+                  type="button"
+                  key={sym}
+                  onClick={() => insertSymbol(sym)}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono text-emerald-300 border border-slate-700 shrink-0"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
 
-        <div className="divide-y divide-slate-800/80">
-          {leaders.map((u) => (
-            <div
-              key={`${u.rank}-${u.name}`}
-              className={`px-5 py-3.5 flex items-center justify-between gap-3 ${
-                u.isCurrentUser ? 'bg-emerald-950/30' : ''
-              }`}
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div
-                  className={`w-8 h-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
-                    u.rank === 1
-                      ? 'bg-amber-400 text-slate-950'
-                      : u.rank === 2
-                      ? 'bg-slate-300 text-slate-950'
-                      : u.rank === 3
-                      ? 'bg-amber-700 text-white'
-                      : 'bg-slate-800 text-slate-300'
+            <div className="relative flex-1 min-h-[240px] font-mono text-xs sm:text-sm bg-slate-950 overflow-hidden">
+              <pre
+                ref={preRef}
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 p-4 m-0 whitespace-pre-wrap break-words leading-relaxed overflow-auto text-slate-100"
+                dangerouslySetInnerHTML={{
+                  __html: highlightCode(filesMap[activeFileName] || '', activeFileName) + '\n'
+                }}
+              />
+              <textarea
+                ref={textareaRef}
+                value={filesMap[activeFileName] || ''}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                onScroll={(e) => {
+                  if (preRef.current) {
+                    preRef.current.scrollTop = e.target.scrollTop;
+                    preRef.current.scrollLeft = e.target.scrollLeft;
+                  }
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoComplete="off"
+                autoCorrect="off"
+                className="relative z-10 w-full h-full min-h-[240px] p-4 bg-transparent text-transparent caret-emerald-400 resize-none focus:outline-none leading-relaxed font-mono"
+              />
+            </div>
+          </div>
+
+          <div
+            className={`${
+              mobilePanel === 'output' ? 'flex' : 'hidden'
+            } lg:flex flex-col border-t border-slate-800 bg-slate-900/80 min-h-[260px]`}
+          >
+            <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-800 overflow-x-auto text-xs">
+              {challenge.language === 'html' && (
+                <button
+                  type="button"
+                  onClick={() => setBottomTab('preview')}
+                  className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 shrink-0 ${
+                    bottomTab === 'preview' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  #{u.rank}
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Preview ao Vivo</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setBottomTab('tests')}
+                className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 shrink-0 ${
+                  bottomTab === 'tests' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Testes ({testResults.filter((r) => r.passed).length}/{challenge.tests?.length || 0})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBottomTab('tutor')}
+                className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 shrink-0 ${
+                  bottomTab === 'tutor' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Brain className="w-3.5 h-3.5" />
+                <span>Tutor IA</span>
+              </button>
+
+              {challenge.language !== 'html' && (
+                <button
+                  type="button"
+                  onClick={() => setBottomTab('memory')}
+                  className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 shrink-0 ${
+                    bottomTab === 'memory' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Memória & Console</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setBottomTab('forum')}
+                className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 shrink-0 ${
+                  bottomTab === 'forum' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Fórum ({comments.length})</span>
+              </button>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto">
+              {bottomTab === 'preview' && challenge.language === 'html' && (
+                <iframe
+                  title="Preview HTML e CSS"
+                  srcDoc={previewSrcDoc}
+                  sandbox="allow-scripts"
+                  className="w-full h-56 rounded-xl border border-slate-700 bg-slate-950"
+                />
+              )}
+
+              {bottomTab === 'tests' && (
+                <div className="space-y-2.5">
+                  {testResults.length === 0 ? (
+                    <p className="text-xs text-slate-400">
+                      Clique em <strong>Verificar Código</strong> para validar sua solução e liberar a próxima aula.
+                    </p>
+                  ) : (
+                    <>
+                      {allPassed && (
+                        <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-emerald-300">
+                            Parabéns! Todos os critérios foram aprovados (+50 XP).
+                          </span>
+                          {nextChallenge && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectChallenge(nextChallenge.id)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1"
+                            >
+                              <span>Ir para Próxima Aula</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {testResults.map((r) => (
+                        <div
+                          key={r.id}
+                          className={`p-3 rounded-xl border text-xs ${
+                            r.passed
+                              ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                              : 'bg-rose-950/30 border-rose-500/30 text-rose-200'
+                          }`}
+                        >
+                          <div className="font-semibold flex items-center gap-1.5">
+                            {r.passed ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            ) : (
+                              <Bug className="w-4 h-4 text-rose-400 shrink-0" />
+                            )}
+                            <span>{r.description}</span>
+                          </div>
+                          {r.error && <p className="mt-1 text-rose-300 font-mono">{r.error}</p>}
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white truncate">{u.name}</span>
-                    {u.isCurrentUser && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Você
-                      </span>
+              )}
+
+              {bottomTab === 'tutor' && (
+                <div className="space-y-2.5">
+                  {aiLoading ? (
+                    <p className="text-xs text-purple-300">Analisando seu código...</p>
+                  ) : aiTips.length === 0 ? (
+                    <div className="text-xs text-slate-400 space-y-2">
+                      <p>O Tutor IA analisa seu código atual e aponta ajustes sem entregar a resposta pronta.</p>
+                      <button
+                        type="button"
+                        onClick={handleAskTutor}
+                        className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-semibold"
+                      >
+                        Analisar Meu Código Agora
+                      </button>
+                    </div>
+                  ) : (
+                    aiTips.map((tip, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 text-xs text-purple-200"
+                      >
+                        {tip}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {bottomTab === 'memory' && challenge.language !== 'html' && (
+                <div className="space-y-3 text-xs">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={traceArgsInput}
+                      onChange={(e) => setTraceArgsInput(e.target.value)}
+                      placeholder='Argumentos JSON, ex: [100, 20]'
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRunMemory}
+                      className="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold"
+                    >
+                      Inspecionar Execução
+                    </button>
+                  </div>
+
+                  {memoryReport && (
+                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2 font-mono">
+                      {memoryReport.error ? (
+                        <p className="text-rose-300">{memoryReport.error}</p>
+                      ) : (
+                        <>
+                          <div className="text-sky-300">
+                            Variáveis de entrada: {JSON.stringify(memoryReport.memorySnapshot)}
+                          </div>
+                          <div className="text-emerald-300">
+                            Retorno da função: {memoryReport.actualOutput} ({memoryReport.durationMs} ms)
+                          </div>
+                          {memoryReport.logs?.length > 0 && (
+                            <div className="pt-1 border-t border-slate-800 text-amber-200">
+                              console.log: {memoryReport.logs.join(' | ')}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bottomTab === 'forum' && (
+                <div className="space-y-3 text-xs">
+                  <form onSubmit={handleAddComment} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Compartilhe uma dúvida ou dica sobre esta aula (+10 XP)..."
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Enviar</span>
+                    </button>
+                  </form>
+                  {commentError && <p className="text-rose-300">{commentError}</p>}
+
+                  <div className="space-y-2">
+                    {comments.length === 0 ? (
+                      <p className="text-slate-500">Nenhuma dúvida publicada nesta aula ainda.</p>
+                    ) : (
+                      comments.map((c) => (
+                        <div key={c.id} className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                            <span className="font-bold text-slate-200">{c.author}</span>
+                            <span>{c.time}</span>
+                          </div>
+                          <p className="text-slate-300">{c.text}</p>
+                        </div>
+                      ))
                     )}
                   </div>
-                  <p className="text-xs text-slate-400">
-                    {u.completedCount} aulas concluídas • 🔥 {u.streak}d ofensiva
-                  </p>
                 </div>
-              </div>
-
-              <div className="font-mono font-bold text-sm text-amber-400 shrink-0">
-                {u.xp} XP
-              </div>
+              )}
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
 
 // ============================================================================
-// SUB-COMPONENTE: PROJETO FINAL FULL-STACK & CERTIFICADO COM QR CODE REAL
+// SUB-COMPONENTE: RANKING SEMANAL & MEDALHAS
+// ============================================================================
+function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) {
+  const [leaders, setLeaders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE_URL}/api/leaderboard`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!active) return;
+        const apiList = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
+        const fallback = [
+          { rank: 1, name: 'Camila Rocha', xp: 1250, streak: 9, completedCount: 25 },
+          { rank: 2, name: 'Rafael Costa', xp: 950, streak: 6, completedCount: 19 },
+          { rank: 3, name: 'Bianca Alves', xp: 700, streak: 5, completedCount: 14 }
+        ];
+        const base = apiList.length > 0 ? apiList : fallback;
+        const selfEntry = {
+          rank: 0,
+          name: currentUser ? `${currentUser.name} (Você)` : 'Você (Visitante)',
+          xp: totalXP,
+          streak: streakCount,
+          completedCount,
+          isSelf: true
+        };
+        const merged = [...base.filter((u) => u.name !== currentUser?.name), selfEntry]
+          .sort((a, b) => b.xp - a.xp)
+          .map((item, idx) => ({ ...item, rank: idx + 1 }));
+        setLeaders(merged);
+      })
+      .catch(() => {
+        if (!active) return;
+        setLeaders([
+          {
+            rank: 1,
+            name: currentUser ? `${currentUser.name} (Você)` : 'Você (Visitante)',
+            xp: totalXP,
+            streak: streakCount,
+            completedCount,
+            isSelf: true
+          }
+        ]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser, totalXP, streakCount, completedCount]);
+
+  return (
+    <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+              <Crown className="w-6 h-6 text-amber-400" />
+              <span>Ranking da Comunidade NexusDev</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+              Conclua aulas (+50 XP) e participe do fórum (+10 XP) para subir no ranking.
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold">
+            Seu XP: {totalXP}
+          </span>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-slate-400 py-6 text-center">Carregando classificação...</p>
+        ) : (
+          <div className="space-y-2.5">
+            {leaders.slice(0, 15).map((u) => (
+              <div
+                key={`${u.name}-${u.rank}`}
+                className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
+                  u.isSelf
+                    ? 'bg-emerald-950/30 border-emerald-500/40'
+                    : 'bg-slate-950/70 border-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold ${
+                      u.rank === 1
+                        ? 'bg-amber-400 text-slate-950'
+                        : u.rank === 2
+                        ? 'bg-slate-300 text-slate-950'
+                        : u.rank === 3
+                        ? 'bg-orange-400 text-slate-950'
+                        : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    #{u.rank}
+                  </span>
+                  <div>
+                    <div className="text-sm font-bold text-white">{u.name}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {u.completedCount} aulas concluídas • {u.streak}d de ofensiva
+                    </div>
+                  </div>
+                </div>
+                <span className="font-mono text-sm font-bold text-amber-300">{u.xp} XP</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTE: PROJETO FINAL & CERTIFICADO COM QR CODE
 // ============================================================================
 function CapstoneSpecView({
   checks,
-  setChecks,
+  onToggleCheck,
   submission,
-  setSubmission,
+  onUpdateSubmission,
   completedChallengesCount,
   totalChallengesCount,
+  currentUser,
   authToken,
-  onOpenVerify
+  onEnqueueSync
 }) {
+  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [issuing, setIssuing] = useState(false);
 
-  const toggleCheck = (id) => {
-    setChecks((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  const completedChecksCount = CAPSTONE_REQUIREMENTS.filter((r) => !!checks[r.id]).length;
 
-  const checkedCount = CAPSTONE_REQUIREMENTS.filter((r) => checks[r.id]).length;
-  const allRequirementsChecked = checkedCount === CAPSTONE_REQUIREMENTS.length;
+  const verificationUrl = useMemo(() => {
+    if (!submission.verificationCode) return '';
+    try {
+      return `${window.location.origin}/?cert=${encodeURIComponent(submission.verificationCode)}`;
+    } catch {
+      return `https://nexusdev-frontend.vercel.app/?cert=${encodeURIComponent(submission.verificationCode)}`;
+    }
+  }, [submission.verificationCode]);
 
-  const handleClaimCertificate = async (e) => {
+  const qrCodeImageUrl = useMemo(() => {
+    if (!verificationUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+      verificationUrl
+    )}`;
+  }, [verificationUrl]);
+
+  const handleIssueCertificate = async (e) => {
     e.preventDefault();
-    if (!submission.studentName.trim()) {
-      setFormError('Informe seu nome completo como deve aparecer no certificado.');
-      return;
-    }
-    if (!submission.githubUrl.trim().startsWith('http')) {
-      setFormError('Informe uma URL válida do repositório no GitHub (iniciando com http/https).');
-      return;
-    }
-    if (!allRequirementsChecked) {
-      setFormError('Marque todos os 5 requisitos técnicos no checklist antes de emitir.');
-      return;
-    }
     setFormError('');
-    setIssuing(true);
+    const studentName = (submission.studentName || currentUser?.name || '').trim();
+    if (!studentName) {
+      setFormError('Informe o nome completo que aparecerá no certificado.');
+      return;
+    }
 
-    let codeHash =
+    setSubmitting(true);
+    const cleanPrefix = studentName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'DEV';
+    const localCode =
       submission.verificationCode ||
-      `NXD-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      `NXD-2026-${cleanPrefix}-${String(completedChallengesCount).padStart(3, '0')}-${Math.floor(
+        1000 + Math.random() * 9000
+      )}`;
+
+    const payload = {
+      studentName,
+      githubUrl: submission.githubUrl.trim(),
+      liveUrl: submission.liveUrl.trim()
+    };
 
     if (authToken) {
       try {
@@ -4755,462 +4219,381 @@ function CapstoneSpecView({
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`
           },
-          body: JSON.stringify({
-            studentName: submission.studentName.trim(),
-            githubUrl: submission.githubUrl.trim(),
-            liveUrl: submission.liveUrl.trim()
-          })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (data && data.code) {
-          codeHash = data.code;
+        setSubmitting(false);
+
+        if (res.ok && data?.code) {
+          onUpdateSubmission({
+            ...submission,
+            studentName: data.studentName || studentName,
+            submitted: true,
+            verificationCode: data.code
+          });
+          return;
         }
       } catch {}
     }
 
-    setSubmission((prev) => ({
-      ...prev,
+    setSubmitting(false);
+    onEnqueueSync({ type: 'certificate', payload });
+    onUpdateSubmission({
+      ...submission,
+      studentName,
       submitted: true,
-      verificationCode: codeHash
-    }));
-    setIssuing(false);
+      verificationCode: localCode
+    });
   };
 
-  const publicCertificateUrl = useMemo(() => {
-    if (!submission.verificationCode) return '';
-    const origin =
-      typeof window !== 'undefined' && window.location.origin.startsWith('http')
-        ? window.location.origin
-        : 'https://nexusdev-frontend.vercel.app';
-    return `${origin}/?cert=${encodeURIComponent(submission.verificationCode)}`;
-  }, [submission.verificationCode]);
+  const handleCopyCode = () => {
+    if (!submission.verificationCode) return;
+    navigator.clipboard?.writeText(submission.verificationCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
 
-  const realQrCodeImageUrl = useMemo(() => {
-    if (!publicCertificateUrl) return '';
-    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-      publicCertificateUrl
-    )}`;
-  }, [publicCertificateUrl]);
-
-  const handleCopyVerifyUrl = () => {
-    if (!publicCertificateUrl) return;
-    navigator.clipboard?.writeText(publicCertificateUrl);
+  const handleCopyLink = () => {
+    if (!verificationUrl) return;
+    navigator.clipboard?.writeText(verificationUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   return (
-    <main className="space-y-8">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
-            <Award className="w-3.5 h-3.5" />
-            <span>Módulo 6 • Requisito Final para Certificação</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-            Projeto Integrador: NexusDev Store & Painel Administrativo
+    <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="flex items-center gap-3 mb-2">
+          <Award className="w-6 h-6 text-emerald-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white">
+            Projeto Integrador & Certificado Verificável
           </h1>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl">
-            Desenvolva e publique um sistema completo de E-Commerce integrando React, API RESTful em
-            Node.js + Express e MongoDB com JWT para emitir seu Certificado Verificável com QR Code.
-          </p>
         </div>
+        <p className="text-xs sm:text-sm text-slate-400">
+          Marque os requisitos concluídos ({completedChecksCount}/{CAPSTONE_REQUIREMENTS.length}) e emita seu certificado oficial com QR Code.
+        </p>
 
-        <button
-          type="button"
-          onClick={() => onOpenVerify(submission.verificationCode)}
-          className="shrink-0 px-4 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-sky-300 flex items-center gap-2"
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Portal de Validação Pública</span>
-        </button>
-      </div>
-
-      {/* Checklist e Formulário */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base sm:text-lg font-bold text-white">
-              Checklist de Requisitos Técnicos
-            </h2>
-            <span className="text-xs font-mono text-emerald-400">
-              {checkedCount}/{CAPSTONE_REQUIREMENTS.length} Verificados
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {CAPSTONE_REQUIREMENTS.map((req) => {
-              const isChecked = !!checks[req.id];
-              return (
+        <div className="mt-5 space-y-2.5">
+          {CAPSTONE_REQUIREMENTS.map((req) => {
+            const checked = !!checks[req.id];
+            return (
+              <div
+                key={req.id}
+                onClick={() => onToggleCheck(req.id)}
+                className={`p-3.5 rounded-xl border cursor-pointer flex items-start gap-3 transition-all ${
+                  checked
+                    ? 'bg-emerald-950/20 border-emerald-500/40'
+                    : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                }`}
+              >
                 <div
-                  key={req.id}
-                  onClick={() => toggleCheck(req.id)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3.5 ${
-                    isChecked
-                      ? 'bg-emerald-950/25 border-emerald-500/40'
-                      : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                  className={`w-5 h-5 rounded flex items-center justify-center mt-0.5 shrink-0 ${
+                    checked ? 'bg-emerald-600 text-white' : 'border border-slate-600'
                   }`}
                 >
-                  <div
-                    className={`w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5 border transition-colors ${
-                      isChecked
-                        ? 'bg-emerald-500 border-emerald-500 text-slate-950'
-                        : 'border-slate-600 bg-slate-900'
-                    }`}
-                  >
-                    {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
-                      {req.category}
-                    </span>
-                    <h3 className="text-sm font-semibold text-white mt-0.5">{req.title}</h3>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">{req.details}</p>
-                  </div>
+                  {checked && <Check className="w-3.5 h-3.5" />}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-white mb-1">
-              Entregar Projeto & Emitir Certificado
-            </h2>
-            <p className="text-xs text-slate-400 mb-5">
-              Aulas concluídas: {completedChallengesCount}/{totalChallengesCount}
-            </p>
-
-            <form onSubmit={handleClaimCertificate} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Nome Completo (para o Certificado)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: João Pedro Santos"
-                  value={submission.studentName}
-                  onChange={(e) =>
-                    setSubmission((prev) => ({
-                      ...prev,
-                      studentName: e.target.value,
-                      submitted: false
-                    }))
-                  }
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <Github className="w-3.5 h-3.5 text-slate-400" />
-                  <span>URL do Repositório no GitHub</span>
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://github.com/seu-usuario/nexusdev-store"
-                  value={submission.githubUrl}
-                  onChange={(e) =>
-                    setSubmission((prev) => ({
-                      ...prev,
-                      githubUrl: e.target.value,
-                      submitted: false
-                    }))
-                  }
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5 text-slate-400" />
-                  <span>URL da Aplicação no Ar (Opcional)</span>
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://nexusdev-store.vercel.app"
-                  value={submission.liveUrl}
-                  onChange={(e) =>
-                    setSubmission((prev) => ({
-                      ...prev,
-                      liveUrl: e.target.value,
-                      submitted: false
-                    }))
-                  }
-                  className="w-full px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              {formError && (
-                <div className="p-3 rounded-lg bg-rose-950/50 border border-rose-800/60 text-xs text-rose-300">
-                  {formError}
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-emerald-400">
+                    {req.category}
+                  </span>
+                  <h3 className="text-sm font-bold text-white">{req.title}</h3>
+                  <p className="text-xs text-slate-400">{req.details}</p>
                 </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={issuing}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50"
-              >
-                <Award className="w-4 h-4" />
-                <span>
-                  {issuing
-                    ? 'Registrando na Nuvem...'
-                    : submission.submitted
-                    ? 'Certificado Verificável Emitido'
-                    : 'Validar & Emitir Certificado'}
-                </span>
-              </button>
-            </form>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-slate-800 text-[11px] text-slate-500 flex items-center gap-2">
-            <Lock className="w-3.5 h-3.5 shrink-0" />
-            <span>Inclui QR Code escaneável e link público para recrutadores.</span>
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Certificado Verificável com QR Code Real */}
-      {submission.submitted && (
-        <section className="bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950/40 border-2 border-emerald-500/50 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex-1 text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-mono mb-3">
-                <ShieldCheck className="w-4 h-4" />
-                <span>ID DE VERIFICAÇÃO: {submission.verificationCode}</span>
+      <form
+        onSubmit={handleIssueCertificate}
+        className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4"
+      >
+        <h2 className="text-lg font-bold text-white">Emitir Certificado</h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-slate-300 mb-1">Nome Completo no Certificado</label>
+            <input
+              type="text"
+              value={submission.studentName}
+              onChange={(e) => onUpdateSubmission({ ...submission, studentName: e.target.value })}
+              placeholder="Seu nome completo"
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs sm:text-sm text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-300 mb-1">Repositório GitHub (opcional)</label>
+            <input
+              type="url"
+              value={submission.githubUrl}
+              onChange={(e) => onUpdateSubmission({ ...submission, githubUrl: e.target.value })}
+              placeholder="https://github.com/usuario/projeto"
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs sm:text-sm text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-300 mb-1">URL Publicada (opcional)</label>
+            <input
+              type="url"
+              value={submission.liveUrl}
+              onChange={(e) => onUpdateSubmission({ ...submission, liveUrl: e.target.value })}
+              placeholder="https://meu-projeto.vercel.app"
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs sm:text-sm text-white"
+            />
+          </div>
+        </div>
+
+        {formError && <p className="text-xs text-rose-300">{formError}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+        >
+          {submitting ? 'Emitindo...' : 'Gerar Certificado Oficial'}
+        </button>
+      </form>
+
+      {submission.submitted && submission.verificationCode && (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 border-2 border-emerald-500/50 rounded-2xl p-6 sm:p-8 shadow-2xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center md:text-left">
+              <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-300 bg-emerald-500/15 px-3 py-1 rounded-full">
+                <Award className="w-4 h-4" />
+                <span>CERTIFICADO DE CONCLUSÃO • NEXUSDEV</span>
               </div>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2">
-                Desenvolvedor(a) Web Full-Stack
-              </h2>
-              <p className="text-sm text-slate-400 mb-4">Certificamos que</p>
-              <div className="text-2xl sm:text-3xl font-serif italic text-emerald-300 border-b border-slate-700 pb-3 max-w-md mx-auto md:mx-0 mb-4">
-                {submission.studentName}
-              </div>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed mb-5">
-                Concluiu com êxito a formação completa de {totalChallengesCount} aulas em
-                Desenvolvimento Web Full-Stack (HTML5, CSS3, JavaScript ES6+, React, Node.js,
-                Express, MongoDB e JWT) e entregou o Projeto Final NexusDev Store.
+              <h3 className="text-2xl sm:text-3xl font-bold text-white">{submission.studentName}</h3>
+              <p className="text-xs sm:text-sm text-slate-300">
+                Concluiu {completedChallengesCount} de {totalChallengesCount} laboratórios práticos na Formação Full-Stack NexusDev.
               </p>
-
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs">
-                <a
-                  href={submission.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 transition-colors"
-                >
-                  <Github className="w-3.5 h-3.5" />
-                  <span>Repositório GitHub</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-2">
+                <span className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-300">
+                  Código: {submission.verificationCode}
+                </span>
                 <button
                   type="button"
-                  onClick={handleCopyVerifyUrl}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 transition-colors"
+                  onClick={handleCopyCode}
+                  className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white flex items-center gap-1"
+                >
+                  {copiedCode ? (
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedCode ? 'Código copiado!' : 'Copiar código'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white font-semibold flex items-center gap-1"
                 >
                   {copiedLink ? (
-                    <>
-                      <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Link Copiado!</span>
-                    </>
+                    <CheckCheck className="w-3.5 h-3.5" />
                   ) : (
-                    <>
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>Copiar Link Público</span>
-                    </>
+                    <ExternalLink className="w-3.5 h-3.5" />
                   )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onOpenVerify(submission.verificationCode)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-200 transition-colors"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Visualizar Página Pública</span>
+                  <span>{copiedLink ? 'Link copiado!' : 'Copiar link público'}</span>
                 </button>
               </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-4 flex flex-col items-center text-center shrink-0">
-              <div className="w-32 h-32 bg-white rounded-xl p-2 flex items-center justify-center mb-2 overflow-hidden">
-                <img
-                  src={realQrCodeImageUrl}
-                  alt={`QR Code de Verificação ${submission.verificationCode}`}
-                  className="w-28 h-28 object-contain"
-                />
-              </div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase">
-                Aponte a câmera para validar
-              </span>
-              <span className="text-[11px] font-mono text-emerald-400 font-bold">
-                {submission.verificationCode}
-              </span>
+            <div className="bg-white p-3 rounded-xl text-slate-900 flex flex-col items-center shrink-0">
+              <img src={qrCodeImageUrl} alt="QR Code do Certificado" className="w-32 h-32" />
+              <span className="text-[10px] font-mono font-bold mt-1">Validar Certificado</span>
             </div>
           </div>
-        </section>
+        </div>
       )}
     </main>
   );
 }
 
 // ============================================================================
-// SUB-COMPONENTE: PORTAL PÚBLICO DE VALIDAÇÃO DE CERTIFICADOS
+// SUB-COMPONENTE: VALIDAÇÃO PÚBLICA DE CERTIFICADO (?cert=CODIGO)
 // ============================================================================
-function CertificateVerificationView({
-  initialCode,
-  localSubmission,
-  completedCount,
-  totalXP
-}) {
-  const [codeInput, setCodeInput] = useState(initialCode || '');
-  const [result, setResult] = useState(null);
+function PublicCertificateVerifierView({ initialCode = '' }) {
+  const [codeInput, setCodeInput] = useState(initialCode);
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
 
-  const verifyCode = async (targetCode) => {
-    const clean = (targetCode || codeInput).trim().toUpperCase();
-    if (!clean) return;
+  const handleLookup = async (e, overrideCode = null) => {
+    if (e) e.preventDefault();
+    const target = String(overrideCode ?? codeInput)
+      .trim()
+      .toUpperCase();
+    if (!target) {
+      setError('Digite o código do certificado para validar.');
+      return;
+    }
     setLoading(true);
+    setError('');
     setResult(null);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/certificates/${encodeURIComponent(clean)}`);
+      const res = await fetch(`${API_BASE_URL}/api/certificates/${encodeURIComponent(target)}`);
       const data = await res.json();
-      if (res.ok && data.valid) {
+      if (res.ok && data?.valid) {
         setResult(data);
-        setLoading(false);
-        return;
+      } else {
+        setError(data?.error || 'Certificado não encontrado na base de dados.');
       }
-    } catch {}
-
-    // Fallback para verificação do certificado emitido localmente na sessão atual
-    if (
-      localSubmission?.submitted &&
-      localSubmission?.verificationCode?.toUpperCase() === clean
-    ) {
-      setResult({
-        valid: true,
-        code: localSubmission.verificationCode,
-        studentName: localSubmission.studentName,
-        completedCount,
-        xp: totalXP,
-        issuedAt: new Date().toISOString(),
-        githubUrl: localSubmission.githubUrl,
-        liveUrl: localSubmission.liveUrl
-      });
-    } else {
-      setResult({
-        valid: false,
-        error: 'Código de certificado não encontrado ou inválido.'
-      });
+    } catch {
+      setError('Não foi possível conectar ao servidor de validação no momento.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     if (initialCode) {
-      verifyCode(initialCode);
+      handleLookup(null, initialCode);
     }
   }, [initialCode]);
 
   return (
-    <main className="max-w-3xl mx-auto space-y-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-semibold">
-          <ShieldCheck className="w-4 h-4" />
-          <span>Autenticidade Verificável NexusDev</span>
+    <main className="flex-1 p-4 sm:p-8 overflow-y-auto">
+      <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">
+              Validação Pública de Certificado
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Confira a autenticidade de um certificado emitido pela NexusDev.
+            </p>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-white">Validar Certificado de Conclusão</h1>
-        <p className="text-xs sm:text-sm text-slate-400">
-          Digite o código impresso no certificado (ex: <code className="text-emerald-400">NXD-2026-...</code>) para confirmar sua autenticidade.
-        </p>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            verifyCode(codeInput);
-          }}
-          className="flex flex-col sm:flex-row gap-2.5"
-        >
+        <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-2.5">
           <input
             type="text"
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value)}
-            placeholder="NXD-2026-XXXXX"
-            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 font-mono text-sm text-white uppercase focus:outline-none focus:border-emerald-500"
+            placeholder="Ex: NXD-2026-MARIA-015-4821"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono text-white uppercase focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
           >
-            {loading ? 'Consultando...' : 'Verificar Autenticidade'}
+            {loading ? 'Validando...' : 'Validar Código'}
           </button>
         </form>
+
+        {error && (
+          <div className="p-3.5 rounded-xl bg-rose-950/50 border border-rose-800/60 text-xs text-rose-300">
+            {error}
+          </div>
+        )}
+
+        {result && (
+          <div className="p-5 rounded-2xl bg-emerald-950/25 border border-emerald-500/40 space-y-2">
+            <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>CERTIFICADO AUTÊNTICO • {result.code}</span>
+            </div>
+            <h2 className="text-xl font-bold text-white pt-1">{result.studentName}</h2>
+            <p className="text-xs text-slate-300">
+              Aulas concluídas: <strong>{result.completedCount}</strong> • Experiência total:{' '}
+              <strong>{result.xp} XP</strong>
+            </p>
+            {result.githubUrl && (
+              <a
+                href={result.githubUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:underline pt-1"
+              >
+                <Github className="w-3.5 h-3.5" />
+                <span>Ver Repositório do Projeto Final</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTE: PERFIL DO ALUNO
+// ============================================================================
+function StudentProfileView({
+  currentUser,
+  totalXP,
+  studentLevel,
+  streakCount,
+  completedChallenges,
+  allChallenges,
+  onOpenChallenge,
+  onOpenCapstone
+}) {
+  const recentCompleted = useMemo(
+    () =>
+      allChallenges
+        .filter((c) => completedChallenges.includes(c.id))
+        .slice(-10)
+        .reverse(),
+    [allChallenges, completedChallenges]
+  );
+
+  return (
+    <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl font-bold">
+            {currentUser?.name?.charAt(0).toUpperCase() || 'A'}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">{currentUser?.name || 'Estudante NexusDev'}</h1>
+            <p className="text-xs text-slate-400">{currentUser?.email}</p>
+            <div className="flex items-center gap-3 mt-1.5 text-xs font-mono">
+              <span className="text-amber-300">{totalXP} XP</span>
+              <span className="text-emerald-400">Nível {studentLevel}</span>
+              <span className="text-orange-300">{streakCount}d ofensiva</span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpenCapstone}
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto"
+        >
+          <Award className="w-4 h-4" />
+          <span>Meu Certificado</span>
+        </button>
       </div>
 
-      {result && (
-        <div
-          className={`rounded-2xl p-6 sm:p-8 border-2 ${
-            result.valid
-              ? 'bg-emerald-950/25 border-emerald-500/50'
-              : 'bg-rose-950/25 border-rose-500/50'
-          }`}
-        >
-          {result.valid ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2.5 text-emerald-400 font-bold text-base">
-                <CheckCircle2 className="w-6 h-6" />
-                <span>Certificado Autêntico & Válido</span>
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h2 className="text-base font-bold text-white mb-3">
+          Últimas Aulas Concluídas ({completedChallenges.length})
+        </h2>
+        {recentCompleted.length === 0 ? (
+          <p className="text-xs text-slate-400">Nenhuma aula concluída ainda.</p>
+        ) : (
+          <div className="space-y-2">
+            {recentCompleted.map((ch) => (
+              <div
+                key={ch.id}
+                onClick={() => onOpenChallenge(ch.id)}
+                className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/40 cursor-pointer flex items-center justify-between text-xs"
+              >
+                <span className="text-slate-200 font-medium">{ch.title}</span>
+                <span className="text-emerald-400 font-mono">Revisar</span>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-xs">
-                <div>
-                  <span className="text-slate-400 block">Titular do Certificado</span>
-                  <strong className="text-base text-white">{result.studentName}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Código Único</span>
-                  <strong className="text-sm font-mono text-emerald-400">{result.code}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Carga Prática Concluída</span>
-                  <strong className="text-sm text-slate-200">
-                    {result.completedCount} aulas ({result.xp} XP)
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Data de Emissão</span>
-                  <strong className="text-sm text-slate-200">
-                    {new Date(result.issuedAt).toLocaleDateString('pt-BR')}
-                  </strong>
-                </div>
-              </div>
-
-              {result.githubUrl && (
-                <a
-                  href={result.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:underline"
-                >
-                  <Github className="w-4 h-4" />
-                  <span>Inspecionar Projeto Final no GitHub</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 text-rose-300 text-sm">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <span>{result.error}</span>
-            </div>
-          )}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
