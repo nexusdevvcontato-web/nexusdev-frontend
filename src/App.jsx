@@ -106,6 +106,24 @@ function highlightCode(code, fileName) {
 }
 
 // ============================================================================
+// PROTEÇÃO CONTRA LOOP INFINITO NO EDITOR (EVITA TRAVAR A ABA DO NAVEGADOR)
+// ============================================================================
+function injectLoopProtection(code, maxIterations = 25000) {
+  let loopCounter = 0;
+  const header = `let __loopOps = 0; const __tick = () => { if (++__loopOps > ${maxIterations}) { throw new Error('Loop infinito ou excesso de iterações detectado (limite: ${maxIterations}). Verifique a condição do seu laço!'); } };\n`;
+
+  const instrumented = String(code || '').replace(
+    /\b(while\s*\([^)]*\)|for\s*\([^)]*\)|do)\s*\{/g,
+    (match) => {
+      loopCounter += 1;
+      return `${match} __tick();`;
+    }
+  );
+
+  return loopCounter > 0 ? header + instrumented : code;
+}
+
+// ============================================================================
 // MOTOR LOCAL DO TUTOR IA (COMPLEMENTADO PELA ROTA /api/tutor/analyze)
 // ============================================================================
 function analyzeStudentCodeLocal(challenge, filesMap, testResults) {
@@ -210,9 +228,10 @@ function runDynamicMemoryInspector(challenge, filesMap, customArgsJson) {
       parsedArgs = Array.isArray(parsed) ? parsed : [parsed];
     }
 
+    const safeJsCode = injectLoopProtection(jsCode, 25000);
     const factory = new Function(
       'console',
-      `"use strict";\n${jsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
+      `"use strict";\n${safeJsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
     );
     const userFn = factory(sandboxConsole);
 
@@ -1253,136 +1272,445 @@ function buildFull140PerModuleCurriculum(baseModules) {
       }
 
       if (mod.number === 3) {
-        const fnName = `atualizarEstadoReact_${idx}`;
-        const isToggle = idx % 2 === 0;
-        list.push({
-          id: `mod-3-aula-${idx}`,
-          title: isToggle
-            ? `Aula ${idx}: Alternando Favorito em Lista React (.map Imutável)`
-            : `Aula ${idx}: Removendo Item do Estado React (.filter Imutável)`,
-          language: 'javascript',
-          targetFunction: fnName,
-          defaultTraceArgs: isToggle
-            ? [[{ id: 1, favorito: false }, { id: 2, favorito: true }], 1]
-            : [[{ id: 1 }, { id: 2 }], 1],
-          difficulty,
-          xp: 50,
-          estimatedTime: '6 min',
-          theory: isToggle
-            ? `Em listas React, usamos \`.map()\` para atualizar apenas o item cujo \`id\` corresponde ao clicado, mantendo os demais intactos.`
-            : `Para remover um item de um estado array no React sem mutá-lo, usamos \`.filter(item => item.id !== idRemover)\`.`,
-          instructions: isToggle
-            ? `Implemente ${fnName}(itens, idAlvo) retornando um novo array onde o item com id === idAlvo tem sua propriedade boolean "favorito" invertida (!item.favorito).`
-            : `Implemente ${fnName}(itens, idRemover) retornando um novo array sem o item cujo id seja igual a idRemover.`,
-          hint: isToggle
-            ? 'Retorne itens.map(item => item.id === idAlvo ? { ...item, favorito: !item.favorito } : item);'
-            : 'Retorne itens.filter(item => item.id !== idRemover);',
-          files: {
-            'script.js': isToggle
-              ? `function ${fnName}(itens, idAlvo) {\n  // Inverta item.favorito de forma imutável usando .map()\n  \n}`
-              : `function ${fnName}(itens, idRemover) {\n  // Remova o item com id === idRemover usando .filter()\n  \n}`
-          },
-          communityPosts: [],
-          tests: [
-            {
-              id: 't1',
-              description: isToggle
-                ? 'Inverte favorito sem mutar o array original'
-                : 'Remove o item correspondente sem mutar o original',
-              testFn: (fn, assert) => {
-                if (isToggle) {
+        const scenario = idx % 5;
+        if (scenario === 0) {
+          const fnName = `alternarFavoritoReact_${idx}`;
+          list.push({
+            id: `mod-3-aula-${idx}`,
+            title: `Aula ${idx}: Alternando Favorito em Lista React (.map Imutável)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[{ id: 1, favorito: false }, { id: 2, favorito: true }], 1],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Em listas React, usamos \`.map()\` para atualizar apenas o item cujo \`id\` corresponde ao clicado, mantendo os demais intactos sem mutar o estado.`,
+            instructions: `Implemente ${fnName}(itens, idAlvo) retornando um novo array onde o item com id === idAlvo tem sua propriedade boolean "favorito" invertida (!item.favorito).`,
+            hint: 'Retorne itens.map(item => item.id === idAlvo ? { ...item, favorito: !item.favorito } : item);',
+            files: {
+              'script.js': `function ${fnName}(itens, idAlvo) {\n  // Inverta item.favorito de forma imutável usando .map()\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Inverte favorito sem mutar o array original',
+                testFn: (fn, assert) => {
                   const orig = [{ id: 1, favorito: false }];
                   const res = fn(orig, 1);
                   assert.deepEqual(res, [{ id: 1, favorito: true }]);
                   assert.strictEqual(orig[0].favorito, false);
-                } else {
+                }
+              }
+            ]
+          });
+        } else if (scenario === 1) {
+          const fnName = `removerItemEstado_${idx}`;
+          list.push({
+            id: `mod-3-aula-${idx}`,
+            title: `Aula ${idx}: Removendo Item do Estado React (.filter Imutável)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[{ id: 1 }, { id: 2 }], 1],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Para remover um item de um estado array no React sem mutá-lo, usamos \`.filter(item => item.id !== idRemover)\`.`,
+            instructions: `Implemente ${fnName}(itens, idRemover) retornando um novo array sem o item cujo id seja igual a idRemover.`,
+            hint: 'Retorne itens.filter(item => item.id !== idRemover);',
+            files: {
+              'script.js': `function ${fnName}(itens, idRemover) {\n  // Remova o item com id === idRemover usando .filter()\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Remove o item correspondente sem mutar o original',
+                testFn: (fn, assert) => {
                   const orig = [{ id: 1 }, { id: 2 }];
                   const res = fn(orig, 1);
                   assert.deepEqual(res, [{ id: 2 }]);
                   assert.strictEqual(orig.length, 2);
                 }
               }
-            }
-          ]
-        });
+            ]
+          });
+        } else if (scenario === 2) {
+          const fnName = `filtrarBuscaProdutos_${idx}`;
+          list.push({
+            id: `mod-3-aula-${idx}`,
+            title: `Aula ${idx}: Busca Instantânea no Catálogo React (useMemo + .filter)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[{ nome: 'Teclado Mecânico' }, { nome: 'Mouse Gamer' }], 'mouse'],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Filtros de busca em tempo real no React comparam strings em minúsculas (\`.toLowerCase()\`) para ignorar diferenças entre maiúsculas e minúsculas.`,
+            instructions: `Implemente ${fnName}(produtos, termoBusca) retornando os produtos cujo "nome" contenha "termoBusca" (ignorando maiúsculas/minúsculas).`,
+            hint: 'Use produtos.filter(p => p.nome.toLowerCase().includes(termoBusca.trim().toLowerCase()));',
+            files: {
+              'script.js': `function ${fnName}(produtos, termoBusca) {\n  // Filtre os produtos pelo termoBusca sem diferenciar maiúsculas\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Filtra corretamente ignorando maiúsculas/minúsculas',
+                testFn: (fn, assert) => {
+                  const lista = [{ nome: 'Teclado Mecânico' }, { nome: 'Mouse Gamer' }];
+                  assert.deepEqual(fn(lista, 'MOUSE'), [{ nome: 'Mouse Gamer' }]);
+                }
+              }
+            ]
+          });
+        } else if (scenario === 3) {
+          const fnName = `calcularSubtotalCarrinho_${idx}`;
+          list.push({
+            id: `mod-3-aula-${idx}`,
+            title: `Aula ${idx}: Estado Derivado — Subtotal do Carrinho (.reduce)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[{ preco: 120, qtd: 2 }, { preco: 50, qtd: 1 }]],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Em vez de guardar o subtotal em um segundo \`useState\`, calculamos o valor derivado diretamente do array \`carrinho\` usando \`.reduce()\`.`,
+            instructions: `Implemente ${fnName}(carrinho) retornando a soma de (item.preco * item.qtd) de todos os itens.`,
+            hint: 'Retorne carrinho.reduce((acc, item) => acc + item.preco * item.qtd, 0);',
+            files: {
+              'script.js': `function ${fnName}(carrinho) {\n  // Calcule o valor total (preco * qtd) usando .reduce()\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Calcula o subtotal corretamente',
+                testFn: (fn, assert) => {
+                  assert.strictEqual(fn([{ preco: 120, qtd: 2 }, { preco: 50, qtd: 1 }]), 290);
+                }
+              }
+            ]
+          });
+        } else {
+          const fnName = `paginarListaReact_${idx}`;
+          list.push({
+            id: `mod-3-aula-${idx}`,
+            title: `Aula ${idx}: Paginação de Lista no Front-End (.slice)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [['A', 'B', 'C', 'D', 'E'], 2, 2],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Para paginar resultados no React, calculamos \`inicio = (pagina - 1) * porPagina\` e usamos \`itens.slice(inicio, inicio + porPagina)\`.`,
+            instructions: `Implemente ${fnName}(itens, pagina, porPagina) retornando a fatia correspondente da página atual (1-based).`,
+            hint: 'const inicio = (pagina - 1) * porPagina; return itens.slice(inicio, inicio + porPagina);',
+            files: {
+              'script.js': `function ${fnName}(itens, pagina, porPagina) {\n  // Retorne os itens da página solicitada usando .slice()\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Retorna os itens da página 2 com 2 itens por página',
+                testFn: (fn, assert) => {
+                  assert.deepEqual(fn(['A', 'B', 'C', 'D', 'E'], 2, 2), ['C', 'D']);
+                }
+              }
+            ]
+          });
+        }
       } else if (mod.number === 4) {
-        const fnName = `handlerExpress_${idx}`;
-        const minLen = 3 + (idx % 4);
-        list.push({
-          id: `mod-4-aula-${idx}`,
-          title: `Aula ${idx}: Controller Express — Validação de Campo (mín. ${minLen} caracteres)`,
-          language: 'javascript',
-          targetFunction: fnName,
-          difficulty,
-          xp: 50,
-          estimatedTime: '6 min',
-          theory: `Validar \`req.body\` antes de salvar no banco evita dados corrompidos e retorna status HTTP \`400 Bad Request\` claro para o Front-End.`,
-          instructions: `Implemente ${fnName}(req, res):
+        const scenario = idx % 4;
+        if (scenario === 0) {
+          const fnName = `handlerExpress_${idx}`;
+          const minLen = 3 + (idx % 4);
+          list.push({
+            id: `mod-4-aula-${idx}`,
+            title: `Aula ${idx}: Controller Express — Validação de Campo (mín. ${minLen} caracteres)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Validar \`req.body\` antes de salvar no banco evita dados corrompidos e retorna status HTTP \`400 Bad Request\` claro para o Front-End.`,
+            instructions: `Implemente ${fnName}(req, res):
 1. Leia req.body.nome.
 2. Se !nome ou nome.trim().length < ${minLen}, retorne res.status(400).json({ erro: "Nome muito curto" }).
 3. Caso contrário, retorne res.status(200).json({ ok: true, nome: nome.trim() }).`,
-          hint: `Verifique if (!nome || nome.trim().length < ${minLen}) return res.status(400).json({ erro: "Nome muito curto" });`,
-          files: {
-            'controller.js': `function ${fnName}(req, res) {\n  const { nome } = req.body || {};\n  // Valide e envie a resposta HTTP\n  \n}`
-          },
-          communityPosts: [],
-          tests: [
-            {
-              id: 't1',
-              description: `Retorna 400 se nome tiver menos de ${minLen} caracteres`,
-              testFn: (fn, assert) => {
-                let st = 200;
-                const res = { status(c) { st = c; return this; }, json() { return this; } };
-                fn({ body: { nome: 'ab' } }, res);
-                assert.strictEqual(st, 400);
-              }
+            hint: `Verifique if (!nome || nome.trim().length < ${minLen}) return res.status(400).json({ erro: "Nome muito curto" });`,
+            files: {
+              'controller.js': `function ${fnName}(req, res) {\n  const { nome } = req.body || {};\n  // Valide e envie a resposta HTTP\n  \n}`
             },
-            {
-              id: 't2',
-              description: 'Retorna 200 quando o nome é válido',
-              testFn: (fn, assert) => {
-                let st = 500;
-                let data = null;
-                const res = { status(c) { st = c; return this; }, json(d) { data = d; return this; } };
-                fn({ body: { nome: 'Notebook Pro' } }, res);
-                assert.strictEqual(st, 200);
-                assert.strictEqual(data.ok, true);
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `Retorna 400 se nome tiver menos de ${minLen} caracteres`,
+                testFn: (fn, assert) => {
+                  let st = 200;
+                  const res = { status(c) { st = c; return this; }, json() { return this; } };
+                  fn({ body: { nome: 'ab' } }, res);
+                  assert.strictEqual(st, 400);
+                }
+              },
+              {
+                id: 't2',
+                description: 'Retorna 200 quando o nome é válido',
+                testFn: (fn, assert) => {
+                  let st = 500;
+                  let data = null;
+                  const res = { status(c) { st = c; return this; }, json(d) { data = d; return this; } };
+                  fn({ body: { nome: 'Notebook Pro' } }, res);
+                  assert.strictEqual(st, 200);
+                  assert.strictEqual(data.ok, true);
+                }
               }
-            }
-          ]
-        });
+            ]
+          });
+        } else if (scenario === 1) {
+          const fnName = `buscarPorIdController_${idx}`;
+          list.push({
+            id: `mod-4-aula-${idx}`,
+            title: `Aula ${idx}: Rota GET /api/itens/:id — Retornando 404 Not Found`,
+            language: 'javascript',
+            targetFunction: fnName,
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Quando um recurso solicitado em \`req.params.id\` não existe na lista ou no banco, a API REST deve responder com status HTTP \`404\`.`,
+            instructions: `Implemente ${fnName}(req, res, lista): procure o item com item.id === req.params.id. Se não achar, retorne res.status(404).json({ erro: "Não encontrado" }); senão retorne res.status(200).json(item).`,
+            hint: 'const item = lista.find(i => i.id === req.params.id); if (!item) return res.status(404).json({ erro: "Não encontrado" });',
+            files: {
+              'controller.js': `function ${fnName}(req, res, lista) {\n  // Busque item por req.params.id e retorne 404 ou 200\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Retorna 404 quando o ID não existe',
+                testFn: (fn, assert) => {
+                  let st = 200;
+                  const res = { status(c) { st = c; return this; }, json() { return this; } };
+                  fn({ params: { id: '99' } }, res, [{ id: '1', nome: 'Item 1' }]);
+                  assert.strictEqual(st, 404);
+                }
+              },
+              {
+                id: 't2',
+                description: 'Retorna 200 com o item encontrado',
+                testFn: (fn, assert) => {
+                  let st = 500;
+                  let body = null;
+                  const res = { status(c) { st = c; return this; }, json(d) { body = d; return this; } };
+                  fn({ params: { id: '1' } }, res, [{ id: '1', nome: 'Item 1' }]);
+                  assert.strictEqual(st, 200);
+                  assert.deepEqual(body, { id: '1', nome: 'Item 1' });
+                }
+              }
+            ]
+          });
+        } else if (scenario === 2) {
+          const fnName = `validarCadastroEmail_${idx}`;
+          list.push({
+            id: `mod-4-aula-${idx}`,
+            title: `Aula ${idx}: Middleware de Validação de E-mail e Senha na API`,
+            language: 'javascript',
+            targetFunction: fnName,
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Antes de processar um cadastro no servidor, validamos formato de e-mail e tamanho mínimo de senha antes de chamar \`next()\`.`,
+            instructions: `Implemente ${fnName}(req, res, next): se !req.body?.email?.includes('@') ou (req.body?.senha || '').length < 6, retorne res.status(400).json({ erro: "Credenciais inválidas" }); caso contrário chame next().`,
+            hint: 'Cheque email e senha.length < 6; se estiver tudo certo, execute next().',
+            files: {
+              'validateMiddleware.js': `function ${fnName}(req, res, next) {\n  // Valide email e senha antes de chamar next()\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Bloqueia com 400 se e-mail não tiver @ ou senha < 6',
+                testFn: (fn, assert) => {
+                  let st = 200;
+                  const res = { status(c) { st = c; return this; }, json() { return this; } };
+                  fn({ body: { email: 'invalido', senha: '123' } }, res, () => {});
+                  assert.strictEqual(st, 400);
+                }
+              },
+              {
+                id: 't2',
+                description: 'Chama next() para e-mail e senha válidos',
+                testFn: (fn, assert) => {
+                  let called = false;
+                  const res = { status() { return this; }, json() { return this; } };
+                  fn({ body: { email: 'dev@nexus.com', senha: 'segredo123' } }, res, () => {
+                    called = true;
+                  });
+                  assert.strictEqual(called, true);
+                }
+              }
+            ]
+          });
+        } else {
+          const fnName = `normalizarQueryFiltro_${idx}`;
+          list.push({
+            id: `mod-4-aula-${idx}`,
+            title: `Aula ${idx}: Query Params Express (req.query) — Paginação Segura`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [{ page: '2', limit: '50' }],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Parâmetros vindos de \`req.query\` sempre chegam como strings e podem ultrapassar limites seguros. Convertemos com \`Number()\` e limitamos o máximo a 20 itens.`,
+            instructions: `Implemente ${fnName}(query) retornando { page, limit } onde page = Math.max(1, Number(query.page) || 1) e limit = Math.min(20, Math.max(1, Number(query.limit) || 10)).`,
+            hint: 'Use Math.max e Math.min para garantir page >= 1 e 1 <= limit <= 20.',
+            files: {
+              'queryHelper.js': `function ${fnName}(query = {}) {\n  // Normalize page e limit com segurança\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Limita o máximo de itens por página a 20',
+                testFn: (fn, assert) => {
+                  assert.deepEqual(fn({ page: '3', limit: '100' }), { page: 3, limit: 20 });
+                }
+              }
+            ]
+          });
+        }
       } else {
-        const fnName = `validarPermissaoJWT_${idx}`;
-        const requiredRole = idx % 2 === 0 ? 'admin' : 'editor';
-        list.push({
-          id: `mod-5-aula-${idx}`,
-          title: `Aula ${idx}: Autorização RBAC — Exigindo Perfil "${requiredRole}"`,
-          language: 'javascript',
-          targetFunction: fnName,
-          defaultTraceArgs: [{ id: 'u1', role: requiredRole }],
-          difficulty,
-          xp: 50,
-          estimatedTime: '6 min',
-          theory: `Em sistemas com múltiplos perfis (RBAC), verificamos \`usuario.role\` antes de permitir operações críticas no MongoDB.`,
-          instructions: `Implemente ${fnName}(usuario) retornando true se usuario && usuario.role === "${requiredRole}", e false caso contrário.`,
-          hint: `Retorne Boolean(usuario && usuario.role === "${requiredRole}");`,
-          files: {
-            'rbac.js': `function ${fnName}(usuario) {\n  // Retorne true apenas se usuario.role === "${requiredRole}"\n  \n}`
-          },
-          communityPosts: [],
-          tests: [
-            {
-              id: 't1',
-              description: `Permite acesso para role "${requiredRole}"`,
-              testFn: (fn, assert) => assert.strictEqual(fn({ role: requiredRole }), true)
+        const scenario = idx % 4;
+        if (scenario === 0) {
+          const fnName = `validarPermissaoJWT_${idx}`;
+          const requiredRole = idx % 2 === 0 ? 'admin' : 'editor';
+          list.push({
+            id: `mod-5-aula-${idx}`,
+            title: `Aula ${idx}: Autorização RBAC — Exigindo Perfil "${requiredRole}"`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [{ id: 'u1', role: requiredRole }],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Em sistemas com múltiplos perfis (RBAC), verificamos \`usuario.role\` antes de permitir operações críticas no MongoDB.`,
+            instructions: `Implemente ${fnName}(usuario) retornando true se usuario && usuario.role === "${requiredRole}", e false caso contrário.`,
+            hint: `Retorne Boolean(usuario && usuario.role === "${requiredRole}");`,
+            files: {
+              'rbac.js': `function ${fnName}(usuario) {\n  // Retorne true apenas se usuario.role === "${requiredRole}"\n  \n}`
             },
-            {
-              id: 't2',
-              description: 'Bloqueia acesso para visitante ou outro perfil',
-              testFn: (fn, assert) => assert.strictEqual(fn({ role: 'guest' }), false)
-            }
-          ]
-        });
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `Permite acesso para role "${requiredRole}"`,
+                testFn: (fn, assert) => assert.strictEqual(fn({ role: requiredRole }), true)
+              },
+              {
+                id: 't2',
+                description: 'Bloqueia acesso para visitante ou outro perfil',
+                testFn: (fn, assert) => assert.strictEqual(fn({ role: 'guest' }), false)
+              }
+            ]
+          });
+        } else if (scenario === 1) {
+          const fnName = `verificarExpiracaoToken_${idx}`;
+          list.push({
+            id: `mod-5-aula-${idx}`,
+            title: `Aula ${idx}: Segurança JWT — Verificando Expiração (exp)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [{ exp: 2000 }, 1500],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Todo payload JWT possui o campo \`exp\` (timestamp em segundos). Se \`agoraSegundos >= payload.exp\`, o token está expirado.`,
+            instructions: `Implemente ${fnName}(payload, agoraSegundos) retornando true se o token ainda for válido (payload && typeof payload.exp === 'number' && payload.exp > agoraSegundos), e false se expirado.`,
+            hint: "Retorne Boolean(payload && typeof payload.exp === 'number' && payload.exp > agoraSegundos);",
+            files: {
+              'jwtGuard.js': `function ${fnName}(payload, agoraSegundos) {\n  // Retorne true apenas se payload.exp > agoraSegundos\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Retorna true para token ainda dentro da validade',
+                testFn: (fn, assert) => assert.strictEqual(fn({ exp: 2000 }, 1500), true)
+              },
+              {
+                id: 't2',
+                description: 'Retorna false para token expirado',
+                testFn: (fn, assert) => assert.strictEqual(fn({ exp: 1500 }, 1500), false)
+              }
+            ]
+          });
+        } else if (scenario === 2) {
+          const fnName = `sanitizarUsuarioPublico_${idx}`;
+          list.push({
+            id: `mod-5-aula-${idx}`,
+            title: `Aula ${idx}: Segurança de Dados — Removendo passwordHash da Resposta`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [{ _id: '1', name: 'Ana', email: 'ana@dev.com', passwordHash: '$2b$10$xyz' }],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Nunca devemos retornar \`passwordHash\` ou segredos internos do documento MongoDB nas respostas JSON da API.`,
+            instructions: `Implemente ${fnName}(userDoc) retornando um novo objeto contendo apenas { id: userDoc._id, name: userDoc.name, email: userDoc.email } sem passwordHash.`,
+            hint: 'Retorne { id: userDoc._id, name: userDoc.name, email: userDoc.email };',
+            files: {
+              'userSerializer.js': `function ${fnName}(userDoc) {\n  // Retorne apenas id, name e email (sem passwordHash)\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Remove passwordHash e formata os campos públicos',
+                testFn: (fn, assert) => {
+                  const res = fn({ _id: '1', name: 'Ana', email: 'ana@dev.com', passwordHash: 'secret' });
+                  assert.deepEqual(res, { id: '1', name: 'Ana', email: 'ana@dev.com' });
+                  assert.strictEqual('passwordHash' in res, false);
+                }
+              }
+            ]
+          });
+        } else {
+          const fnName = `somarPedidosPagos_${idx}`;
+          list.push({
+            id: `mod-5-aula-${idx}`,
+            title: `Aula ${idx}: Agregação de Pedidos Pagos no Banco de Dados`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[{ status: 'pago', total: 150 }, { status: 'pendente', total: 300 }, { status: 'pago', total: 50 }]],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Relatórios financeiros filtram apenas registros com \`status === 'pago'\` antes de somar o faturamento total.`,
+            instructions: `Implemente ${fnName}(pedidos) somando a propriedade "total" apenas dos pedidos cujo status seja "pago".`,
+            hint: "Filtre pedidos.filter(p => p.status === 'pago') e some com .reduce((acc, p) => acc + p.total, 0).",
+            files: {
+              'relatorioPedidos.js': `function ${fnName}(pedidos) {\n  // Some o total apenas dos pedidos com status === "pago"\n  \n}`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Soma apenas pedidos com status "pago"',
+                testFn: (fn, assert) => {
+                  const dados = [
+                    { status: 'pago', total: 150 },
+                    { status: 'pendente', total: 300 },
+                    { status: 'pago', total: 50 }
+                  ];
+                  assert.strictEqual(fn(dados), 200);
+                }
+              }
+            ]
+          });
+        }
       }
 
       idx++;
@@ -1469,8 +1797,13 @@ export default function App() {
 
   const initialCertParam = useMemo(() => {
     try {
+      const pathname = window.location.pathname || '';
+      const certPathMatch = pathname.match(/^\/cert\/([^/]+)/i);
+      if (certPathMatch && certPathMatch[1]) {
+        return decodeURIComponent(certPathMatch[1]).trim().toUpperCase();
+      }
       const params = new URLSearchParams(window.location.search);
-      return params.get('cert') || '';
+      return (params.get('cert') || '').trim().toUpperCase();
     } catch {
       return '';
     }
@@ -2173,6 +2506,31 @@ export default function App() {
   const nextChallenge =
     activeChallengeIndex < allChallenges.length - 1 ? allChallenges[activeChallengeIndex + 1] : null;
 
+  const nextPendingChallenge = useMemo(
+    () => allChallenges.find((c) => !completedChallenges.includes(c.id)) || allChallenges[0],
+    [allChallenges, completedChallenges]
+  );
+
+  const dailyBugChallenge = useMemo(() => {
+    const debugList = allChallenges.filter((c) => c.isDebug);
+    if (debugList.length === 0) return allChallenges[0];
+    const dayIndex = new Date().getDate() % debugList.length;
+    return debugList[dayIndex];
+  }, [allChallenges]);
+
+  const activeModuleForResume = useMemo(
+    () =>
+      INTERACTIVE_MODULES.find((m) => m.id === nextPendingChallenge?.moduleId) ||
+      INTERACTIVE_MODULES[0],
+    [nextPendingChallenge]
+  );
+
+  const activeModuleDoneCount = useMemo(
+    () =>
+      activeModuleForResume.challenges.filter((c) => completedChallenges.includes(c.id)).length,
+    [activeModuleForResume, completedChallenges]
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* ====================================================================
@@ -2767,7 +3125,7 @@ export default function App() {
           </div>
         </aside>
 
-        {/* PÁGINA INICIAL EXPLICATIVA (RESTAURADA AO PADRÃO ORIGINAL) */}
+        {/* PÁGINA INICIAL EXPLICATIVA */}
         {navState.activeView === 'home' && (
           <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-8">
             <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl">
@@ -2828,6 +3186,67 @@ export default function App() {
                     <div className="text-[11px] text-slate-400">IDE + Tutor IA</div>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Continuar de Onde Parei + Desafio Rápido do Dia */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-slate-900 border border-emerald-500/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold">
+                      {completedCount > 0 ? 'CONTINUAR DE ONDE PAREI' : 'SUA PRIMEIRA MISSÃO'}
+                    </span>
+                    <span className="text-slate-400">
+                      Módulo {activeModuleForResume.number} ({activeModuleDoneCount}/
+                      {activeModuleForResume.totalSyllabusLessons})
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-white truncate">
+                    {nextPendingChallenge?.title}
+                  </h2>
+                  <div className="w-full max-w-md h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all"
+                      style={{
+                        width: `${Math.round(
+                          (activeModuleDoneCount /
+                            Math.max(1, activeModuleForResume.totalSyllabusLessons)) *
+                            100
+                        )}%`
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openChallenge(nextPendingChallenge.id)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>{completedCount > 0 ? 'Retomar Aula' : 'Iniciar Aula 1'}</span>
+                </button>
+              </div>
+
+              <div className="bg-slate-900 border border-rose-500/30 rounded-2xl p-5 flex flex-col justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-rose-300 bg-rose-500/15 px-2 py-0.5 rounded mb-1.5">
+                    <Bug className="w-3.5 h-3.5" />
+                    <span>DESAFIO RÁPIDO DO DIA</span>
+                  </div>
+                  <h3 className="text-sm font-bold text-white line-clamp-2">
+                    {dailyBugChallenge?.title}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openChallenge(dailyBugChallenge.id)}
+                  className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-rose-200 flex items-center justify-center gap-1.5"
+                >
+                  <span>Resolver Bug (+50 XP)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </section>
 
@@ -3427,8 +3846,9 @@ function ChallengeWorkspace({
       let userFn = null;
       let compileError = null;
       try {
+        const safeJsCode = injectLoopProtection(jsCode, 25000);
         const factory = new Function(
-          `"use strict";\n${jsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
+          `"use strict";\n${safeJsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
         );
         userFn = factory();
         if (typeof userFn !== 'function') {
@@ -4175,9 +4595,9 @@ function CapstoneSpecView({
   const verificationUrl = useMemo(() => {
     if (!submission.verificationCode) return '';
     try {
-      return `${window.location.origin}/?cert=${encodeURIComponent(submission.verificationCode)}`;
+      return `${window.location.origin}/cert/${encodeURIComponent(submission.verificationCode)}`;
     } catch {
-      return `https://nexusdev-frontend.vercel.app/?cert=${encodeURIComponent(submission.verificationCode)}`;
+      return `https://nexusdev-frontend.vercel.app/cert/${encodeURIComponent(submission.verificationCode)}`;
     }
   }, [submission.verificationCode]);
 
@@ -4411,7 +4831,7 @@ function CapstoneSpecView({
 }
 
 // ============================================================================
-// SUB-COMPONENTE: VALIDAÇÃO PÚBLICA DE CERTIFICADO (?cert=CODIGO)
+// SUB-COMPONENTE: VALIDAÇÃO PÚBLICA DE CERTIFICADO (/cert/CODIGO ou ?cert=CODIGO)
 // ============================================================================
 function PublicCertificateVerifierView({ initialCode = '' }) {
   const [codeInput, setCodeInput] = useState(initialCode);
