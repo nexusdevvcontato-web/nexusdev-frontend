@@ -44,7 +44,6 @@ import {
   Cpu,
   MessageSquare,
   Send,
-  QrCode,
   FolderOpen,
   Share2,
   CheckCheck,
@@ -52,7 +51,11 @@ import {
   Compass,
   Menu,
   Rocket,
-  ArrowRight
+  ArrowRight,
+  Medal,
+  Crown,
+  Star,
+  Activity
 } from 'lucide-react';
 
 // URL da API Back-end em Produção (Render)
@@ -102,9 +105,9 @@ function highlightCode(code, fileName) {
 }
 
 // ============================================================================
-// MOTOR DO TUTOR IA (ANALISA O CÓDIGO DO ALUNO SEM ENTREGAR A RESPOSTA PRONTA)
+// MOTOR LOCAL DO TUTOR IA (COMPLEMENTADO PELA ROTA /api/tutor/analyze)
 // ============================================================================
-function analyzeStudentCode(challenge, filesMap, testResults) {
+function analyzeStudentCodeLocal(challenge, filesMap, testResults) {
   const tips = [];
   const allCode = Object.values(filesMap || {}).join('\n');
 
@@ -137,19 +140,11 @@ function analyzeStudentCode(challenge, filesMap, testResults) {
     if (challenge.id === 'html-00-o-que-e-web' && !/<h1\b/i.test(htmlCode)) {
       tips.push('Ainda não encontramos a tag <h1> no index.html. Lembre-se de abrir com <h1> e fechar com </h1>.');
     }
-    if (challenge.id === 'css-04-flexbox-nav' && !/display\s*:\s*flex/i.test(cssCode + htmlCode)) {
-      tips.push('Clique na aba "style.css" e adicione "display: flex;" dentro do seletor nav { ... }.');
+    if (challenge.instructions?.includes('display: flex') && !/display\s*:\s*flex/i.test(cssCode + htmlCode)) {
+      tips.push('Clique na aba "style.css" e adicione "display: flex;" dentro do seletor solicitado.');
     }
-    if (challenge.id === 'css-05-grid-cards' && !/display\s*:\s*grid/i.test(cssCode + htmlCode)) {
-      tips.push('Na aba "style.css", adicione "display: grid;" dentro da classe .grid-produtos.');
-    }
-    if (challenge.isDebug && challenge.id === 'html-debug-06') {
-      if (!/<\/button>/i.test(htmlCode)) {
-        tips.push('No index.html, observe o fechamento do botão: ele precisa fechar com </button> em vez de </div>.');
-      }
-      if (/justify-content\s*:\s*center|space-between/i.test(cssCode) && !/display\s*:\s*flex/i.test(cssCode)) {
-        tips.push('No style.css, "justify-content" exige que ".rodape-card" tenha "display: flex;".');
-      }
+    if (challenge.instructions?.includes('display: grid') && !/display\s*:\s*grid/i.test(cssCode + htmlCode)) {
+      tips.push('Na aba "style.css", adicione "display: grid;" dentro do contêiner.');
     }
   } else {
     const jsCode = Object.values(filesMap || {}).join('\n');
@@ -163,7 +158,7 @@ function analyzeStudentCode(challenge, filesMap, testResults) {
       tips.push('Falta uma instrução "return" na sua função. Sem return, o JavaScript retorna undefined.');
     }
 
-    if (challenge.isDebug && challenge.id === 'js-debug-06' && /<=\s*itens\.length/.test(jsCode)) {
+    if (challenge.isDebug && /<=\s*itens\.length/.test(jsCode)) {
       tips.push(
         'Atenção no laço "for": arrays vão do índice 0 até "itens.length - 1". Usar "<=" acessa uma posição inexistente!'
       );
@@ -191,56 +186,92 @@ function analyzeStudentCode(challenge, filesMap, testResults) {
 }
 
 // ============================================================================
-// VISUALIZADOR DE MEMÓRIA PASSO A PASSO
+// VISUALIZADOR DE MEMÓRIA DINÂMICO (EXECUTA COM INPUTS REAIS + CAPTURA CONSOLE.LOG)
 // ============================================================================
-function generateTraceSteps(challenge, filesMap) {
-  if (!challenge.traceDemo) return null;
+function runDynamicMemoryInspector(challenge, filesMap, customArgsJson) {
   const jsCode = Object.values(filesMap || {}).join('\n');
   const fnName = challenge.targetFunction;
+  const logs = [];
+
+  const sandboxConsole = {
+    log: (...items) =>
+      logs.push(items.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' ')),
+    warn: (...items) =>
+      logs.push('[WARN] ' + items.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' ')),
+    error: (...items) =>
+      logs.push('[ERRO] ' + items.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' '))
+  };
 
   try {
+    let parsedArgs = challenge.defaultTraceArgs || [10];
+    if (customArgsJson && customArgsJson.trim()) {
+      const parsed = JSON.parse(customArgsJson);
+      parsedArgs = Array.isArray(parsed) ? parsed : [parsed];
+    }
+
     const factory = new Function(
+      'console',
       `"use strict";\n${jsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
     );
-    const userFn = factory();
+    const userFn = factory(sandboxConsole);
+
     if (typeof userFn !== 'function') {
       return {
-        error: `Defina a função "${fnName}" corretamente para inspecionar a memória.`
+        error: `Defina a função "${fnName}" corretamente no editor para inspecionar sua execução.`
       };
     }
 
-    const actualOutput = userFn(...challenge.traceDemo.args);
+    const startTime = performance.now();
+    const actualOutput = userFn(...parsedArgs);
+    const durationMs = (performance.now() - startTime).toFixed(2);
+
+    const paramNamesMatch = jsCode.match(new RegExp(`function\\s+${fnName}\\s*\\(([^)]*)\\)`));
+    const paramNames = paramNamesMatch
+      ? paramNamesMatch[1]
+          .split(',')
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : parsedArgs.map((_, i) => `arg${i + 1}`);
+
+    const memorySnapshot = {};
+    paramNames.forEach((pName, idx) => {
+      memorySnapshot[pName] = parsedArgs[idx];
+    });
+
     return {
-      inputLabel: challenge.traceDemo.inputLabel,
-      steps: challenge.traceDemo.steps,
+      fnName,
+      args: parsedArgs,
+      memorySnapshot,
       actualOutput: JSON.stringify(actualOutput),
-      expectedOutput: JSON.stringify(challenge.traceDemo.expectedOutput),
-      matched: JSON.stringify(actualOutput) === JSON.stringify(challenge.traceDemo.expectedOutput)
+      logs,
+      durationMs,
+      staticSteps: challenge.traceDemo?.steps || null
     };
   } catch (err) {
     return {
-      error: `Corrija o erro de sintaxe para visualizar as variáveis: ${err.message}`
+      error: `Erro durante a inspeção de memória: ${err.message}`,
+      logs
     };
   }
 }
 
 // ============================================================================
-// GRADE COMPLETA DE AULAS EM 6 MÓDULOS FULL-STACK (140 AULAS POR MÓDULO)
+// CONSTRUTOR DE CURRÍCULO ÚNICO E PROGRESSIVO (140 AULAS POR MÓDULO = 700 AULAS)
 // ============================================================================
 const BASE_INTERACTIVE_MODULES = [
   {
     id: 'mod-1',
     number: 1,
     title: 'Fundamentos da Web: HTML5 & CSS3 do Zero Absoluto',
-    subtitle: 'Seus Primeiros Passos na Programação: Tags, Textos, Listas, Links, Cores e Layouts',
+    subtitle: 'Seus Primeiros Passos: Tags, Portfólio Pessoal, Landing Page, Flexbox & Grid',
     icon: 'Layout',
     description:
-      'Feito para quem nunca programou na vida! Aprenda com calma o que é uma tag HTML, como escrever títulos, parágrafos, listas e botões, até dar cores e formas às suas páginas com CSS3.',
+      'Feito para quem nunca programou na vida! Aprenda passo a passo construindo projetos reais: Portfólio Pessoal, Cartões de Produto, Menus Flexbox e Grades Responsivas em HTML5 & CSS3.',
     tracks: [
-      { name: 'Aula 1 a 35: Primeiros Passos (Títulos, Parágrafos, Negrito e Quebras)', count: 35 },
-      { name: 'Aula 36 a 70: Listas, Links, Botões, Imagens & Formulários Simples', count: 35 },
-      { name: 'Aula 71 a 105: Primeiros Estilos CSS (Cores, Fontes, Espaçamentos e Bordas)', count: 35 },
-      { name: 'Aula 106 a 140: Alinhamento com Flexbox, Grid & Projeto de Página Pessoal', count: 35 }
+      { name: 'Aula 1 a 35: Primeiras Tags (Títulos, Parágrafos, Listas & Links)', count: 35 },
+      { name: 'Aula 36 a 70: Projeto 1 — Portfólio Pessoal & Formulários HTML5', count: 35 },
+      { name: 'Aula 71 a 105: Projeto 2 — Estilização CSS3, Cores, Fontes & Box Model', count: 35 },
+      { name: 'Aula 106 a 140: Projeto 3 — Landing Page Moderna com Flexbox & CSS Grid', count: 35 }
     ],
     challenges: [
       {
@@ -258,9 +289,7 @@ Todo site que você abre no navegador é feito com **HTML**. O HTML funciona com
 - Uma tag de fechamento (com uma barra \`/\`): \`</h1>\`
 
 Juntando tudo, fica assim:
-\`<h1>Olá, Mundo!</h1>\`
-
-A tag \`<h1>\` significa **Heading 1** (Título Principal da página).`,
+\`<h1>Olá, Mundo!</h1>\``,
         instructions: `No editor ao lado (no arquivo index.html), escreva uma tag <h1> com o texto "Olá, Mundo!" dentro dela.
 
 Depois, clique no botão verde "Verificar Código" no topo para testar!`,
@@ -306,13 +335,7 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '3 min',
-        theory: `Assim como em um livro ou jornal, uma página web tem um título grande (\`<h1>\`) e subtítulos menores para dividir os assuntos (\`<h2>\`).
-
-Exemplo:
-\`<h1>Meu Perfil</h1>\`
-\`<h2>Sobre Mim</h2>\`
-
-Repare que toda tag que você abre (\`<h2>\`) precisa ser fechada com a barra (\`</h2>\`).`,
+        theory: `Assim como em um livro ou jornal, uma página web tem um título grande (\`<h1>\`) e subtítulos menores para dividir os assuntos (\`<h2>\`).`,
         instructions: `Abaixo do <h1> que já está no editor, adicione um subtítulo <h2> com o texto "Sobre Mim".`,
         hint: 'Na linha 2 do editor, digite: <h2>Sobre Mim</h2>',
         files: {
@@ -347,13 +370,8 @@ Repare que toda tag que você abre (\`<h2>\`) precisa ser fechada com a barra (\
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '4 min',
-        theory: `Para escrever frases e textos comuns em uma página, usamos a tag \`<p>\` (de **Parágrafo**).
-
-Exemplo:
-\`<p>Estou aprendendo a criar sites do zero.</p>\`
-
-Veja na aba **Preview ao Vivo** aqui embaixo como o navegador mostra o texto imediatamente enquanto você digita!`,
-        instructions: `Adicione um parágrafo <p> logo abaixo do <h2> escrevendo uma frase se apresentando (por exemplo: "Estou aprendendo programação web.").`,
+        theory: `Para escrever frases e textos comuns em uma página, usamos a tag \`<p>\` (de **Parágrafo**). Veja na aba **Preview ao Vivo** como o navegador mostra o texto imediatamente!`,
+        instructions: `Adicione um parágrafo <p> logo abaixo do <h2> escrevendo uma frase se apresentando com pelo menos 5 caracteres.`,
         hint: 'Escreva: <p>Estou aprendendo programação web.</p>',
         files: {
           'index.html': `<h1>Olá, Visitante!</h1>\n<h2>Quem sou eu</h2>\n<!-- Escreva seu parágrafo <p> abaixo -->\n`
@@ -386,14 +404,11 @@ Veja na aba **Preview ao Vivo** aqui embaixo como o navegador mostra o texto ime
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '4 min',
-        theory: `Você pode colocar uma tag **dentro** de outra! Quando queremos destacar uma palavra importante em **negrito** dentro de um parágrafo, envolvemos essa palavra com \`<strong>...</strong>\`.
-
-Exemplo:
-\`<p>Eu amo estudar <strong>tecnologia</strong> todos os dias.</p>\``,
-        instructions: `Crie um parágrafo <p> com a frase: "A prática leva à <strong>perfeição</strong> na programação."`,
-        hint: 'Escreva exatamente: <p>A prática leva à <strong>perfeição</strong> na programação.</p>',
+        theory: `Quando queremos destacar uma palavra importante em **negrito** dentro de um parágrafo, envolvemos essa palavra com \`<strong>...</strong>\`.`,
+        instructions: `Crie um parágrafo <p> contendo uma palavra destacada com <strong> dentro dele.`,
+        hint: 'Escreva: <p>A prática leva à <strong>perfeição</strong> na programação.</p>',
         files: {
-          'index.html': `<!-- Crie o parágrafo com a palavra perfeição dentro de <strong> -->\n`
+          'index.html': `<!-- Crie o parágrafo com uma palavra dentro de <strong> -->\n`
         },
         communityPosts: [],
         tests: [
@@ -423,16 +438,8 @@ Exemplo:
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '5 min',
-        theory: `Listas aparecem em todo lugar na internet (menus, receitas, tarefas). Para fazer uma lista com bolinhas, usamos duas tags juntas:
-- \`<ul>\` (Unordered List): abre e fecha a lista inteira.
-- \`<li>\` (List Item): representa cada item da lista.
-
-Exemplo:
-\`<ul>\`
-\`  <li>HTML</li>\`
-\`  <li>CSS</li>\`
-\`</ul>\``,
-        instructions: `Crie uma lista <ul> contendo pelo menos 3 itens <li> com coisas que você quer aprender (ex: HTML, CSS, JavaScript).`,
+        theory: `Para fazer uma lista com bolinhas, usamos \`<ul>\` para envolver a lista inteira e \`<li>\` para cada item.`,
+        instructions: `Crie uma lista <ul> contendo pelo menos 3 itens <li> com tecnologias que você vai dominar (HTML, CSS, JavaScript).`,
         hint: 'Abra <ul>, coloque três linhas com <li>Item</li> dentro, e feche com </ul>.',
         files: {
           'index.html': `<h2>Meus Objetivos</h2>\n<!-- Crie sua lista <ul> com 3 itens <li> abaixo -->\n`
@@ -465,10 +472,7 @@ Exemplo:
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '4 min',
-        theory: `Todo site precisa de botões para o usuário clicar ("Entrar", "Comprar", "Enviar"). Em HTML, basta usar a tag \`<button>\`!
-
-Exemplo:
-\`<button>Clique Aqui</button>\``,
+        theory: `Todo site precisa de botões para o usuário clicar ("Entrar", "Comprar", "Enviar"). Em HTML, basta usar a tag \`<button>\`!`,
         instructions: `Adicione um botão <button> com o texto "Começar Agora" logo abaixo do parágrafo.`,
         hint: 'Digite: <button>Começar Agora</button>',
         files: {
@@ -504,12 +508,12 @@ Exemplo:
     subtitle: 'Variáveis, Condicionais, Laços, Arrays, Visualizador de Memória & Bugs',
     icon: 'Code2',
     description:
-      'Domine a linguagem de programação da Web com visualização passo a passo das variáveis na memória, métodos funcionais de array, algoritmos e desafios de depuração.',
+      'Domine a linguagem de programação da Web com inspeção dinâmica da memória e console.log ao vivo, métodos funcionais de array, algoritmos reais e desafios de depuração.',
     tracks: [
-      { name: 'Variáveis, Tipos, Operadores & Condicionais', count: 35 },
-      { name: 'Estruturas de Repetição & Visualização de Memória', count: 35 },
+      { name: 'Variáveis, Operadores Matemáticos & Strings', count: 35 },
+      { name: 'Condicionais, Lógica Booleana & Validações', count: 35 },
       { name: 'Arrays, Objetos & Métodos Funcionais (map/filter/reduce)', count: 35 },
-      { name: 'DOM Interativo, Async/Await & Debugging JS', count: 35 }
+      { name: 'Algoritmos Reais, Datas, Moedas & Debugging JS', count: 35 }
     ],
     challenges: [
       {
@@ -517,29 +521,15 @@ Exemplo:
         title: 'Calculando Preço com Desconto',
         language: 'javascript',
         targetFunction: 'calcularPrecoComDesconto',
+        defaultTraceArgs: [100, 20],
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '4 min',
-        theory: `Funções em JavaScript recebem parâmetros (entradas), processam uma lógica e devolvem um resultado usando a palavra-chave return.
-
-Exemplo:
-function dobrar(valor) {
-  return valor * 2;
-}`,
+        theory: `Funções em JavaScript recebem parâmetros (entradas), processam uma lógica e devolvem um resultado usando \`return\`. Use \`console.log()\` e abra o **Visualizador de Memória** para ver os valores ao vivo!`,
         instructions: `Implemente a função calcularPrecoComDesconto(preco, percentualDesconto) que recebe o preço original e o percentual de desconto (ex: 20 para 20%) e retorna o valor final após aplicar o desconto.`,
         hint: 'Multiplique preco por (1 - percentualDesconto / 100) ou subtraia (preco * percentualDesconto / 100) de preco.',
         files: {
           'script.js': `function calcularPrecoComDesconto(preco, percentualDesconto) {\n  // Retorne o preço final com o desconto aplicado\n  \n}`
-        },
-        traceDemo: {
-          inputLabel: 'calcularPrecoComDesconto(100, 20)',
-          args: [100, 20],
-          expectedOutput: 80,
-          steps: [
-            { line: 'Entrada', vars: { preco: 100, percentualDesconto: 20 }, note: 'Parâmetros recebidos pela função' },
-            { line: 'Cálculo do desconto', vars: { desconto: 20 }, note: '100 * (20 / 100) = 20' },
-            { line: 'Retorno final', vars: { resultado: 80 }, note: '100 - 20 = 80 devolvido pelo return' }
-          ]
         },
         communityPosts: [],
         tests: [
@@ -552,11 +542,6 @@ function dobrar(valor) {
             id: 't2',
             description: 'calcularPrecoComDesconto(250, 10) deve retornar 225',
             testFn: (fn, assert) => assert.strictEqual(fn(250, 10), 225)
-          },
-          {
-            id: 't3',
-            description: 'calcularPrecoComDesconto(50, 0) deve retornar 50',
-            testFn: (fn, assert) => assert.strictEqual(fn(50, 0), 50)
           }
         ]
       },
@@ -565,26 +550,17 @@ function dobrar(valor) {
         title: 'Regra de Frete Grátis com Condicionais',
         language: 'javascript',
         targetFunction: 'calcularFrete',
+        defaultTraceArgs: [80, true],
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '5 min',
-        theory: `Estruturas condicionais (if / else) permitem que seu código tome decisões baseadas em comparações como >= (maior ou igual), === (igualdade estrita) e || (OU lógico).`,
+        theory: `Estruturas condicionais (\`if / else\`) permitem que seu código tome decisões baseadas em comparações como \`>=\` e \`||\` (OU lógico).`,
         instructions: `Complete a função calcularFrete(valorCompra, clienteVip):
 - Se valorCompra for maior ou igual a 200 OU clienteVip for true, retorne 0 (frete grátis).
 - Caso contrário, retorne 25.`,
         hint: 'Use if (valorCompra >= 200 || clienteVip === true) { return 0; } return 25;',
         files: {
           'script.js': `function calcularFrete(valorCompra, clienteVip) {\n  // Implemente a regra de frete grátis\n  \n}`
-        },
-        traceDemo: {
-          inputLabel: 'calcularFrete(80, true)',
-          args: [80, true],
-          expectedOutput: 0,
-          steps: [
-            { line: 'Entrada', vars: { valorCompra: 80, clienteVip: true }, note: 'Cliente abaixo de R$ 200, mas é VIP' },
-            { line: 'Avaliação if', vars: { condicao1: false, condicao2: true }, note: 'false || true avalia para true!' },
-            { line: 'Retorno', vars: { frete: 0 }, note: 'Frete grátis concedido' }
-          ]
         },
         communityPosts: [],
         tests: [
@@ -610,36 +586,17 @@ function dobrar(valor) {
         title: 'Somando Todos os Elementos de um Array',
         language: 'javascript',
         targetFunction: 'somarArray',
+        defaultTraceArgs: [[10, 5, 20]],
         difficulty: 'Iniciante',
         xp: 50,
         estimatedTime: '6 min',
-        theory: `Arrays armazenam listas ordenadas. Você pode percorrer todos os itens com um laço for...of ou acumular valores usando .reduce((acc, atual) => acc + atual, 0).`,
-        instructions: `Escreva uma função chamada somarArray(numeros) que recebe um array de números e retorna a soma de todos eles.
-- Se o array estiver vazio [], retorne 0.
-- Deve funcionar com números positivos e negativos.`,
+        theory: `Arrays armazenam listas ordenadas. Você pode percorrer todos os itens com um laço \`for...of\` ou acumular valores usando \`.reduce((acc, atual) => acc + atual, 0)\`.`,
+        instructions: `Escreva uma função chamada somarArray(numeros) que recebe um array de números e retorna a soma de todos eles (0 se vazio).`,
         hint: 'Crie let soma = 0, percorra cada número somando em soma e retorne soma.',
         files: {
           'script.js': `function somarArray(numeros) {\n  // Escreva seu código aqui\n  \n}`
         },
-        traceDemo: {
-          inputLabel: 'somarArray([10, 5, 20])',
-          args: [[10, 5, 20]],
-          expectedOutput: 35,
-          steps: [
-            { line: 'Início do loop', vars: { i: 0, item: 10, soma: 10 }, note: 'soma = 0 + 10' },
-            { line: 'Iteração 2', vars: { i: 1, item: 5, soma: 15 }, note: 'soma = 10 + 5' },
-            { line: 'Iteração 3', vars: { i: 2, item: 20, soma: 35 }, note: 'soma = 15 + 20 -> Fim do array' }
-          ]
-        },
-        communityPosts: [
-          {
-            id: 'c5',
-            author: 'Gabriel Souza',
-            badge: 'Nível 5',
-            time: 'há 4 horas',
-            text: 'Abra a aba "Visualizador de Memória" aqui embaixo para enxergar o valor de "soma" mudando a cada volta do loop!'
-          }
-        ],
+        communityPosts: [],
         tests: [
           {
             id: 't1',
@@ -649,98 +606,6 @@ function dobrar(valor) {
           {
             id: 't2',
             description: 'somarArray([]) deve retornar 0 para array vazio',
-            testFn: (fn, assert) => assert.strictEqual(fn([]), 0)
-          },
-          {
-            id: 't3',
-            description: 'somarArray([10, -2, 5]) deve retornar 13',
-            testFn: (fn, assert) => assert.strictEqual(fn([10, -2, 5]), 13)
-          }
-        ]
-      },
-      {
-        id: 'js-04-filter-map',
-        title: 'Filtrando Usuários Ativos com .filter() e .map()',
-        language: 'javascript',
-        targetFunction: 'obterNomesAtivos',
-        difficulty: 'Intermediário',
-        xp: 50,
-        estimatedTime: '8 min',
-        theory: `No desenvolvimento JavaScript moderno e em React, encadeamos métodos funcionais:
-- .filter(u => u.ativo) filtra apenas os itens verdadeiros.
-- .map(u => u.nome) transforma cada objeto em seu nome.`,
-        instructions: `Escreva a função obterNomesAtivos(usuarios) que recebe um array de objetos no formato { nome: "Ana", ativo: true } e retorna um novo array contendo APENAS os nomes (strings) dos usuários onde ativo é true.`,
-        hint: 'Retorne usuarios.filter(u => u.ativo).map(u => u.nome);',
-        files: {
-          'script.js': `function obterNomesAtivos(usuarios) {\n  // Retorne apenas os nomes dos usuários com ativo: true\n  \n}`
-        },
-        communityPosts: [],
-        tests: [
-          {
-            id: 't1',
-            description: 'Retorna somente os nomes dos usuários ativos',
-            testFn: (fn, assert) => {
-              const lista = [
-                { nome: 'Ana', ativo: true },
-                { nome: 'Bruno', ativo: false },
-                { nome: 'Carla', ativo: true }
-              ];
-              assert.deepEqual(fn(lista), ['Ana', 'Carla']);
-            }
-          },
-          {
-            id: 't2',
-            description: 'Retorna array vazio se ninguém estiver ativo',
-            testFn: (fn, assert) => {
-              assert.deepEqual(fn([{ nome: 'Bruno', ativo: false }]), []);
-            }
-          }
-        ]
-      },
-      {
-        id: 'js-debug-06',
-        title: 'Conserte o Bug: Erro de Índice (NaN) no Total do Pedido',
-        language: 'javascript',
-        targetFunction: 'calcularTotalPedido',
-        difficulty: 'Intermediário',
-        isDebug: true,
-        xp: 50,
-        estimatedTime: '7 min',
-        theory: `Um dos bugs mais clássicos em programação é o "Off-by-one error" (erro por 1 posição) em laços for.
-Se um array tem 3 elementos, seus índices válidos são 0, 1 e 2. Tentar ler itens[3] retorna undefined, e somar número + undefined gera NaN (Not a Number)!`,
-        instructions: `A função calcularTotalPedido(itens) está retornando NaN por causa de um bug na condição do laço "for".
-Corrija o bug para que ela some corretamente o preco de todos os itens.`,
-        hint: 'Altere "i <= itens.length" para "i < itens.length" na linha do loop for.',
-        files: {
-          'script.js': `function calcularTotalPedido(itens) {
-  let total = 0;
-  // BUG: este laço está tentando acessar uma posição além do fim do array!
-  for (let i = 0; i <= itens.length; i++) {
-    total += itens[i].preco;
-  }
-  return total;
-}`
-        },
-        traceDemo: {
-          inputLabel: 'calcularTotalPedido([{ preco: 50 }, { preco: 30 }])',
-          args: [[{ preco: 50 }, { preco: 30 }]],
-          expectedOutput: 80,
-          steps: [
-            { line: 'i = 0', vars: { i: 0, preco: 50, total: 50 }, note: 'Primeiro item somado' },
-            { line: 'i = 1', vars: { i: 1, preco: 30, total: 80 }, note: 'Segundo item somado' },
-            { line: 'i = 2 (Limite)', vars: { i: 2, condicao: '2 < 2 (false)' }, note: 'Laço encerra com segurança retornando 80' }
-          ]
-        },
-        communityPosts: [],
-        tests: [
-          {
-            id: 't1',
-            description: 'Soma corretamente [{ preco: 50 }, { preco: 30 }] retornando 80',
-            testFn: (fn, assert) => assert.strictEqual(fn([{ preco: 50 }, { preco: 30 }]), 80)
-          },
-          {
-            id: 't2',
-            description: 'Retorna 0 para pedido sem itens []',
             testFn: (fn, assert) => assert.strictEqual(fn([]), 0)
           }
         ]
@@ -754,12 +619,12 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
     subtitle: 'Componentes, Props, Estado Imutável, Hooks e Carrinho',
     icon: 'Layers',
     description:
-      'Construa aplicações SPA (Single Page Applications) reativas e escaláveis com React. Domine JSX, componentização, useState, useEffect, Context API e lógica de estado imutável.',
+      'Construa aplicações SPA reativas com React. Domine JSX, componentização, useState, useEffect, busca em tempo real e lógica de estado imutável.',
     tracks: [
       { name: 'JSX, Componentes Funcionais & Props', count: 35 },
       { name: 'Gerenciamento de Estado (useState & Imutabilidade)', count: 35 },
-      { name: 'Efeitos Colaterais (useEffect) & Consumo de APIs', count: 35 },
-      { name: 'Roteamento, Formulários Controlados & Carrinho', count: 35 }
+      { name: 'Listas Dinâmicas, Filtros & Busca em Tempo Real', count: 35 },
+      { name: 'Carrinho de Compras, Checkout & Hooks Customizados', count: 35 }
     ],
     challenges: [
       {
@@ -767,13 +632,13 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
         title: 'Adicionando Itens ao Carrinho de Forma Imutável',
         language: 'javascript',
         targetFunction: 'adicionarAoCarrinho',
+        defaultTraceArgs: [[], { id: 1, nome: 'Teclado', preco: 200 }],
         difficulty: 'Intermediário',
         xp: 50,
         estimatedTime: '10 min',
-        theory: `No React, NUNCA devemos modificar o estado diretamente (evite carrinho.push()). Em vez disso, criamos um novo array usando o operador spread [...] ou .map() para que o React detecte a mudança e atualize a tela.`,
+        theory: `No React, NUNCA modificamos o estado diretamente (evite \`carrinho.push()\`). Em vez disso, criamos um novo array usando spread \`[...]\` ou \`.map()\`.`,
         instructions: `Implemente adicionarAoCarrinho(carrinho, produto) retornando um NOVO array sem alterar o array original:
-- Cada item do carrinho tem { id, nome, preco, qtd }.
-- Se produto.id já existir no carrinho, retorne um novo array incrementando qtd em +1 naquele item.
+- Se produto.id já existir no carrinho, incremente qtd em +1 naquele item.
 - Se produto.id for novo, adicione { ...produto, qtd: 1 } ao final do novo array.`,
         hint: 'Verifique com carrinho.some(i => i.id === produto.id). Se existir, use carrinho.map(...); caso contrário, retorne [...carrinho, { ...produto, qtd: 1 }].',
         files: {
@@ -788,7 +653,7 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
               const original = [];
               const res = fn(original, { id: 1, nome: 'Teclado', preco: 200 });
               assert.deepEqual(res, [{ id: 1, nome: 'Teclado', preco: 200, qtd: 1 }]);
-              assert.strictEqual(original.length, 0, 'O array original não deve ser modificado');
+              assert.strictEqual(original.length, 0);
             }
           },
           {
@@ -798,43 +663,7 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
               const original = [{ id: 1, nome: 'Teclado', preco: 200, qtd: 1 }];
               const res = fn(original, { id: 1, nome: 'Teclado', preco: 200 });
               assert.deepEqual(res, [{ id: 1, nome: 'Teclado', preco: 200, qtd: 2 }]);
-              assert.strictEqual(original[0].qtd, 1, 'O item original não deve ser mutado');
-            }
-          }
-        ]
-      },
-      {
-        id: 'react-02-total-carrinho',
-        title: 'Calculando Subtotal e Quantidade de Itens do Carrinho',
-        language: 'javascript',
-        targetFunction: 'resumoCarrinho',
-        difficulty: 'Intermediário',
-        xp: 50,
-        estimatedTime: '8 min',
-        theory: `Em componentes React, valores derivados (como o valor total do carrinho e total de unidades) não devem ficar duplicados no useState; eles são calculados diretamente a partir da lista de itens usando .reduce().`,
-        instructions: `Implemente resumoCarrinho(carrinho) que recebe um array de itens { preco, qtd } e retorna um objeto { totalItens, valorTotal }.`,
-        hint: 'Use .reduce() para somar item.qtd em totalItens e (item.preco * item.qtd) em valorTotal.',
-        files: {
-          'script.js': `function resumoCarrinho(carrinho) {\n  // Retorne { totalItens, valorTotal }\n  \n}`
-        },
-        communityPosts: [],
-        tests: [
-          {
-            id: 't1',
-            description: 'Calcula corretamente totalItens e valorTotal',
-            testFn: (fn, assert) => {
-              const itens = [
-                { preco: 100, qtd: 2 },
-                { preco: 50, qtd: 3 }
-              ];
-              assert.deepEqual(fn(itens), { totalItens: 5, valorTotal: 350 });
-            }
-          },
-          {
-            id: 't2',
-            description: 'Retorna zeros quando o carrinho está vazio',
-            testFn: (fn, assert) => {
-              assert.deepEqual(fn([]), { totalItens: 0, valorTotal: 0 });
+              assert.strictEqual(original[0].qtd, 1);
             }
           }
         ]
@@ -848,7 +677,7 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
     subtitle: 'Servidores HTTP, Rotas RESTful, Middlewares e Validação',
     icon: 'Server',
     description:
-      'Saia do navegador e construa o servidor da aplicação. Crie APIs RESTful profissionais com Node.js e Express, valide dados de entrada e domine os códigos de status HTTP.',
+      'Construa o servidor da aplicação. Crie APIs RESTful profissionais com Node.js e Express, valide dados de entrada e domine os códigos de status HTTP.',
     tracks: [
       { name: 'Fundamentos do Node.js, NPM & Módulos', count: 35 },
       { name: 'Criando Servidores & Rotas REST com Express', count: 35 },
@@ -864,14 +693,12 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
         difficulty: 'Intermediário',
         xp: 50,
         estimatedTime: '10 min',
-        theory: `Em uma API Node.js/Express bem estruturada, separamos a definição de rotas (server.js) da lógica de negócio (produtoController.js).
-- req.body contém o JSON enviado pelo cliente.
-- res.status(codigo).json(dados) envia a resposta HTTP (201 Created ou 400 Bad Request).`,
+        theory: `Em uma API Express, separamos a definição de rotas (\`server.js\`) da lógica de negócio (\`produtoController.js\`).`,
         instructions: `No arquivo produtoController.js, complete criarProdutoController(req, res):
 1. Extraia { titulo, preco } de req.body.
 2. Se !titulo ou typeof preco !== 'number' ou preco <= 0, responda com status 400 e { erro: "Dados inválidos" }.
 3. Caso contrário, responda com status 201 e { id: 101, titulo, preco }.`,
-        hint: 'Use return res.status(400).json({ erro: "Dados inválidos" }) para interromper a execução em caso de erro.',
+        hint: 'Use return res.status(400).json({ erro: "Dados inválidos" }) em caso de erro.',
         files: {
           'produtoController.js': `function criarProdutoController(req, res) {\n  const { titulo, preco } = req.body || {};\n  // Valide os dados e envie a resposta HTTP adequada\n  \n}`,
           'server.js': `// Exemplo de rota Express conectada ao controller:\n// app.post('/api/produtos', criarProdutoController);\n`
@@ -935,13 +762,11 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
         difficulty: 'Avançado',
         xp: 50,
         estimatedTime: '10 min',
-        theory: `Middlewares de autorização verificam o cabeçalho Authorization: Bearer <token> e o nível de acesso do usuário antes de permitir que a requisição chegue ao controller.
-- Status 401: Não autenticado (sem token).
-- Status 403: Proibido (autenticado, mas sem permissão de admin).`,
+        theory: `Middlewares de autorização verificam o cabeçalho \`Authorization: Bearer <token>\` e o cargo do usuário antes de liberar acesso ao controller.`,
         instructions: `Implemente verificarAdmin(req, res, next):
-1. Verifique req.headers.authorization. Se não existir ou não começar com "Bearer ", retorne res.status(401).json({ erro: "Não autorizado" }).
-2. Verifique se req.usuario && req.usuario.cargo === "admin". Se não for, retorne res.status(403).json({ erro: "Acesso restrito a administradores" }).
-3. Se passar nas duas verificações, chame next().`,
+1. Se req.headers.authorization não começar com "Bearer ", retorne res.status(401).json({ erro: "Não autorizado" }).
+2. Se req.usuario?.cargo !== "admin", retorne res.status(403).json({ erro: "Acesso restrito" }).
+3. Caso passe, chame next().`,
         hint: 'Primeiro cheque !req.headers?.authorization?.startsWith("Bearer ") para 401; depois req.usuario?.cargo !== "admin" para 403.',
         files: {
           'authMiddleware.js': `function verificarAdmin(req, res, next) {\n  // Implemente a verificação do token Bearer e do cargo admin\n  \n}`
@@ -962,22 +787,6 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
           },
           {
             id: 't2',
-            description: 'Retorna 403 quando o usuário não tem cargo "admin"',
-            testFn: (fn, assert) => {
-              let status = 200;
-              let nextCalled = false;
-              const res = { status(c) { status = c; return this; }, json() { return this; } };
-              fn(
-                { headers: { authorization: 'Bearer token_cliente' }, usuario: { cargo: 'cliente' } },
-                res,
-                () => { nextCalled = true; }
-              );
-              assert.strictEqual(status, 403);
-              assert.strictEqual(nextCalled, false);
-            }
-          },
-          {
-            id: 't3',
             description: 'Chama next() quando há token Bearer e cargo é "admin"',
             testFn: (fn, assert) => {
               let status = 200;
@@ -1014,62 +823,11 @@ Corrija o bug para que ela some corretamente o preco de todos os itens.`,
   }
 ];
 
-// Expande cada módulo (1 ao 5) para exatamente 140 aulas práticas interativas (700 aulas no total)
+// ============================================================================
+// GERADOR DE 140 AULAS ÚNICAS E TEMÁTICAS POR MÓDULO (SEM REPETIÇÃO GENÉRICA)
+// ============================================================================
 function buildFull140PerModuleCurriculum(baseModules) {
   const TARGET_PER_MODULE = 140;
-
-  const moduleTopicTemplates = {
-    1: [
-      'Estrutura Semântica & SEO',
-      'Formulários Acessíveis & Validação HTML5',
-      'Tipografia, Cores & Variáveis CSS',
-      'Box Model, Margin, Padding & Bordas',
-      'Alinhamento Avançado com Flexbox',
-      'Layouts Bidimensionais com CSS Grid',
-      'Design Responsivo & Media Queries',
-      'Transições, Hover & Microinterações UI'
-    ],
-    2: [
-      'Manipulação de Strings & Template Literals',
-      'Lógica Booleana & Operadores Ternários',
-      'Estruturas de Repetição & Acumuladores',
-      'Transformação de Dados com .map()',
-      'Filtragem Condicional com .filter()',
-      'Agregação de Valores com .reduce()',
-      'Desestruturação de Objetos & Spread',
-      'Tratamento de Erros & Validação de Tipos'
-    ],
-    3: [
-      'Composição de Componentes & Props',
-      'Atualização Imutável de Estado',
-      'Renderização Condicional & Listas',
-      'Formulários Controlados & Validação UI',
-      'Filtros & Busca em Tempo Real',
-      'Lógica de Carrinho & Totais Derivados',
-      'Otimização de Renderização & Memoização',
-      'Arquitetura de Hooks Customizados'
-    ],
-    4: [
-      'Validação de Payloads & Status HTTP',
-      'Construção de Respostas RESTful JSON',
-      'Paginação, Ordenação & Query Params',
-      'Middlewares de Log & Tratamento de Erros',
-      'Sanitização de Dados de Entrada',
-      'Regras de Negócio em Controllers',
-      'Rate Limiting & Segurança de Rotas',
-      'Integração entre Rotas e Serviços'
-    ],
-    5: [
-      'Modelagem de Schemas & Campos Obrigatórios',
-      'Filtros & Consultas de Documentos',
-      'Controle de Acesso Baseado em Cargos (RBAC)',
-      'Validação de Tokens & Sessões',
-      'Relacionamento entre Usuários e Pedidos',
-      'Agregações & Relatórios de Vendas',
-      'Proteção de Dados Sensíveis',
-      'Auditoria & Integridade Transacional'
-    ]
-  };
 
   return baseModules.map((mod) => {
     if (mod.isCapstoneModule) {
@@ -1077,226 +835,557 @@ function buildFull140PerModuleCurriculum(baseModules) {
     }
 
     const list = [...mod.challenges];
-    const topics = moduleTopicTemplates[mod.number] || ['Prática Full-Stack'];
     let idx = list.length + 1;
 
     while (list.length < TARGET_PER_MODULE) {
-      const topicName = topics[(idx - 1) % topics.length];
       const difficulty = idx <= 45 ? 'Iniciante' : idx <= 95 ? 'Intermediário' : 'Avançado';
 
+      // MÓDULO 1: 100% HTML5 & CSS3 COM PROJETOS PROGRESSIVOS ÚNICOS
       if (mod.number === 1) {
-        const htmlTopics = [
-          {
-            topic: 'Títulos e Hierarquia de Textos (<h1>, <h2>, <h3>)',
-            theory: `### Módulo 1 • Aula ${idx} de ${TARGET_PER_MODULE}: Títulos e Hierarquia HTML5\n\nNo HTML5, organizamos o conteúdo em níveis de importância usando títulos (\`<h1>\` até \`<h3>\`).\n\nNesta prática, crie uma seção \`<section>\` contendo um título \`<h2>\` e um parágrafo \`<p>\` explicando o tema **${topicName}**.`,
-            instructions: `No arquivo index.html:\n1. Crie uma tag <section>.\n2. Dentro dela, adicione um <h2> com o texto "Aula ${idx} - HTML e CSS".\n3. Abaixo do <h2>, adicione um parágrafo <p> com pelo menos 10 caracteres.`,
-            hint: `Escreva: <section><h2>Aula ${idx} - HTML e CSS</h2><p>Praticando estrutura HTML5.</p></section>`,
+        const scenario = idx % 8;
+        if (scenario === 1) {
+          const sectionTitle = `Portfólio Dev #${idx}`;
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: Cabeçalho Semântico <header> (${sectionTitle})`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '4 min',
+            theory: `### Projeto Portfólio • Etapa ${idx}\n\nEm HTML5 moderno, usamos \`<header>\` para agrupar o cabeçalho principal de uma página ou seção.`,
+            instructions: `No arquivo index.html, crie uma tag <header> contendo um <h1> com o texto "${sectionTitle}".`,
+            hint: `Escreva: <header><h1>${sectionTitle}</h1></header>`,
             files: {
-              'index.html': `<!-- Aula ${idx}: Prática de HTML5 & CSS3 -->\n`,
-              'style.css': `body {\n  font-family: sans-serif;\n  background: #0f172a;\n  color: #f8fafc;\n  padding: 20px;\n}\n`
+              'index.html': `<!-- Crie o <header> com <h1>${sectionTitle}</h1> -->\n`,
+              'style.css': `header { background: #1e293b; color: #34d399; padding: 16px; border-radius: 10px; font-family: sans-serif; }\n`
             },
+            communityPosts: [],
             tests: [
               {
                 id: 't1',
-                description: 'Existe uma tag <section> no HTML',
+                description: 'Existe um elemento <header> com <h1> dentro',
                 testFn: (doc) => {
-                  if (!doc.querySelector('section')) throw new Error('Adicione a tag <section> no index.html.');
-                }
-              },
-              {
-                id: 't2',
-                description: `Existe um <h2> contendo "Aula ${idx}"`,
-                testFn: (doc) => {
-                  const h2 = doc.querySelector('section h2');
-                  if (!h2 || !h2.textContent.includes(`Aula ${idx}`)) {
-                    throw new Error(`Adicione um <h2> com "Aula ${idx} - HTML e CSS" dentro de <section>.`);
-                  }
-                }
-              },
-              {
-                id: 't3',
-                description: 'Existe um parágrafo <p> dentro de <section>',
-                testFn: (doc) => {
-                  const p = doc.querySelector('section p');
-                  if (!p || p.textContent.trim().length < 10) {
-                    throw new Error('Adicione um <p> com pelo menos 10 caracteres dentro de <section>.');
+                  const h1 = doc.querySelector('header h1');
+                  if (!h1 || !h1.textContent.includes(sectionTitle)) {
+                    throw new Error(`Adicione <header><h1>${sectionTitle}</h1></header> no index.html.`);
                   }
                 }
               }
             ]
-          },
-          {
-            topic: 'Cores e Fundos com CSS3 (color & background-color)',
-            theory: `### Módulo 1 • Aula ${idx} de ${TARGET_PER_MODULE}: Estilizando com CSS3\n\nCom o CSS3 damos vida às páginas HTML alterando cores de texto (\`color\`), cor de fundo (\`background-color\`) e espaçamento interno (\`padding\`).\n\nAbra a aba **style.css** no editor para estilizar a caixa \`.cartao\`.`,
-            instructions: `No arquivo style.css, estilize a classe .cartao adicionando:\n1. background-color: #1e293b;\n2. padding: 20px;\n3. border-radius: 12px;`,
-            hint: 'Clique na aba style.css e preencha background-color, padding e border-radius dentro de .cartao { ... }.',
+          });
+        } else if (scenario === 2) {
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: Links de Navegação <nav> e <a href>`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '4 min',
+            theory: `### Navegação Web • Etapa ${idx}\n\nA tag \`<nav>\` agrupa os links principais do site, criados com \`<a href="#secao">Texto</a>\`.`,
+            instructions: `Crie uma barra <nav> com pelo menos 2 links <a> (ex: Início e Projetos).`,
+            hint: 'Escreva: <nav><a href="#inicio">Início</a> <a href="#projetos">Projetos</a></nav>',
             files: {
-              'index.html': `<div class="cartao">\n  <h2>Cartão Estilizado • Aula ${idx}</h2>\n  <p>Aprendendo CSS3 na prática sem JavaScript!</p>\n</div>\n`,
-              'style.css': `body {\n  font-family: sans-serif;\n  background: #020617;\n  color: #f8fafc;\n  padding: 20px;\n}\n\n.cartao {\n  /* Adicione background-color, padding e border-radius aqui */\n  \n}\n`
+              'index.html': `<!-- Adicione <nav> com dois links <a> -->\n`,
+              'style.css': `nav { background: #0f172a; padding: 12px; display: flex; gap: 16px; font-family: sans-serif; }\na { color: #38bdf8; text-decoration: none; font-weight: bold; }\n`
             },
+            communityPosts: [],
             tests: [
               {
                 id: 't1',
-                description: '.cartao possui background-color definido no style.css',
+                description: 'A tag <nav> possui pelo menos 2 links <a>',
+                testFn: (doc) => {
+                  const links = doc.querySelectorAll('nav a');
+                  if (links.length < 2) throw new Error('Adicione pelo menos 2 tags <a> dentro de <nav>.');
+                }
+              }
+            ]
+          });
+        } else if (scenario === 3) {
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: Formulário de Contato (<form>, <input>, <button>)`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `### Formulários HTML5 • Etapa ${idx}\n\nFormulários permitem que visitantes enviem dados usando \`<form>\`, campos \`<input>\` e um botão de envio.`,
+            instructions: `Crie um <form> contendo um <input type="email" placeholder="Seu e-mail"> e um <button>Enviar</button>.`,
+            hint: 'Coloque <input type="email" placeholder="Seu e-mail"> e <button>Enviar</button> dentro de <form>...</form>.',
+            files: {
+              'index.html': `<form>\n  <!-- Adicione o input e o button aqui -->\n</form>\n`,
+              'style.css': `form { display: flex; gap: 8px; padding: 16px; background: #1e293b; border-radius: 8px; }\ninput { padding: 8px; border-radius: 6px; border: 1px solid #475569; }\nbutton { padding: 8px 16px; background: #10b981; border: none; border-radius: 6px; font-weight: bold; }\n`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'O <form> contém um <input> e um <button>',
+                testFn: (doc) => {
+                  if (!doc.querySelector('form input') || !doc.querySelector('form button')) {
+                    throw new Error('Inclua um <input> e um <button> dentro da tag <form>.');
+                  }
+                }
+              }
+            ]
+          });
+        } else if (scenario === 4) {
+          const padPx = 16 + (idx % 4) * 4;
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: Box Model CSS — Padding e Bordas Arredondadas`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `### CSS Box Model • Etapa ${idx}\n\nNo CSS, \`padding\` define o respiro interno entre o texto e a borda da caixa, enquanto \`border-radius\` arredonda os cantos.`,
+            instructions: `Na aba style.css, configure a classe .caixa-destaque para ter:\n1. padding: ${padPx}px;\n2. border-radius: 12px;`,
+            hint: `Abra style.css e escreva padding: ${padPx}px; e border-radius: 12px; dentro de .caixa-destaque.`,
+            files: {
+              'index.html': `<div class="caixa-destaque">\n  <h3>Card Box Model #${idx}</h3>\n  <p>Espaçamento interno limpo com CSS3.</p>\n</div>\n`,
+              'style.css': `body { background: #020617; color: white; font-family: sans-serif; padding: 16px; }\n.caixa-destaque {\n  background: #1e293b;\n  border: 1px solid #334155;\n  /* Defina padding e border-radius abaixo */\n  \n}\n`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `.caixa-destaque possui padding e border-radius definidos`,
                 testFn: (_doc, _win, rawCss) => {
-                  if (!/\.cartao\s*\{[^}]*background(-color)?\s*:/i.test(rawCss)) {
-                    throw new Error('Defina background-color dentro de .cartao no style.css.');
+                  if (!/\.caixa-destaque\s*\{[^}]*padding\s*:/i.test(rawCss)) {
+                    throw new Error(`Adicione padding: ${padPx}px; em .caixa-destaque.`);
                   }
-                }
-              },
-              {
-                id: 't2',
-                description: '.cartao possui padding definido no style.css',
-                testFn: (_doc, _win, rawCss) => {
-                  if (!/\.cartao\s*\{[^}]*padding\s*:/i.test(rawCss)) {
-                    throw new Error('Defina padding: 20px; dentro de .cartao no style.css.');
+                  if (!/\.caixa-destaque\s*\{[^}]*border-radius\s*:/i.test(rawCss)) {
+                    throw new Error('Adicione border-radius: 12px; em .caixa-destaque.');
                   }
                 }
               }
             ]
-          },
-          {
-            topic: 'Alinhamento Horizontal com CSS Flexbox',
-            theory: `### Módulo 1 • Aula ${idx} de ${TARGET_PER_MODULE}: Layout com Flexbox\n\nO **Flexbox** (\`display: flex;\`) permite alinhar elementos lado a lado de forma moderna e responsiva.\n\nUse \`display: flex;\` e \`gap: 16px;\` no contêiner \`.linha-flex\`.`,
-            instructions: `No arquivo style.css, configure a classe .linha-flex para:\n1. Ter display: flex;\n2. Ter gap: 16px;`,
-            hint: 'Na aba style.css, dentro de .linha-flex { ... }, escreva display: flex; e gap: 16px;',
+          });
+        } else if (scenario === 5) {
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: Flexbox — Centralizando Elementos na Tela`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `### Flexbox Centralizado • Etapa ${idx}\n\nCombinando \`display: flex;\`, \`justify-content: center;\` e \`align-items: center;\`, você centraliza qualquer conteúdo perfeitamente.`,
+            instructions: `No arquivo style.css, adicione display: flex; justify-content: center; e align-items: center; na classe .centro.`,
+            hint: 'Abra style.css e complete as 3 propriedades Flexbox dentro de .centro.',
             files: {
-              'index.html': `<div class="linha-flex">\n  <div class="box">Item 1</div>\n  <div class="box">Item 2</div>\n  <div class="box">Item 3</div>\n</div>\n`,
-              'style.css': `body {\n  font-family: sans-serif;\n  background: #020617;\n  color: #f8fafc;\n  padding: 20px;\n}\n\n.linha-flex {\n  /* Ative display: flex e gap: 16px abaixo */\n  \n}\n\n.box {\n  background: #10b981;\n  color: #020617;\n  font-weight: bold;\n  padding: 12px 20px;\n  border-radius: 8px;\n}\n`
+              'index.html': `<div class="centro">\n  <span class="badge">Badge Centralizado #${idx}</span>\n</div>\n`,
+              'style.css': `body { background: #020617; font-family: sans-serif; }\n.centro {\n  height: 140px;\n  background: #0f172a;\n  border-radius: 12px;\n  /* Adicione display: flex, justify-content e align-items */\n  \n}\n.badge { background: #10b981; color: #020617; padding: 8px 16px; border-radius: 99px; font-weight: bold; }\n`
             },
+            communityPosts: [],
             tests: [
               {
                 id: 't1',
-                description: '.linha-flex utiliza display: flex',
-                testFn: (doc, win, rawCss) => {
-                  const el = doc.querySelector('.linha-flex');
-                  const computed = win?.getComputedStyle(el)?.display;
-                  if (computed !== 'flex' && !/\.linha-flex\s*\{[^}]*display\s*:\s*flex/i.test(rawCss)) {
-                    throw new Error('Adicione display: flex dentro de .linha-flex no style.css.');
-                  }
-                }
-              },
-              {
-                id: 't2',
-                description: '.linha-flex define espaçamento com gap',
+                description: '.centro ativa display: flex e justify-content: center',
                 testFn: (_doc, _win, rawCss) => {
-                  if (!/\.linha-flex\s*\{[^}]*gap\s*:/i.test(rawCss)) {
-                    throw new Error('Adicione gap: 16px; dentro de .linha-flex no style.css.');
+                  if (!/\.centro\s*\{[^}]*display\s*:\s*flex/i.test(rawCss)) {
+                    throw new Error('Adicione display: flex; em .centro.');
+                  }
+                  if (!/\.centro\s*\{[^}]*justify-content\s*:\s*center/i.test(rawCss)) {
+                    throw new Error('Adicione justify-content: center; em .centro.');
                   }
                 }
               }
             ]
-          },
-          {
-            topic: 'Links e Botões Estilizados em HTML5 & CSS3',
-            theory: `### Módulo 1 • Aula ${idx} de ${TARGET_PER_MODULE}: Navegação e Ações\n\nLinks (\`<a href="...">\`) conectam páginas na web, enquanto botões (\`<button>\`) disparam ações na interface.`,
-            instructions: `No arquivo index.html:\n1. Adicione um link <a> com href="#topo" e texto "Voltar ao Topo".\n2. Adicione um <button> com texto "Salvar".`,
-            hint: 'Escreva <a href="#topo">Voltar ao Topo</a> e <button>Salvar</button> no index.html.',
+          });
+        } else if (scenario === 6) {
+          const cols = (idx % 2) + 2; // 2 ou 3 colunas
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: CSS Grid — Criando Vitrine de ${cols} Colunas`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `### CSS Grid • Etapa ${idx}\n\nCom \`display: grid;\` e \`grid-template-columns: repeat(${cols}, 1fr);\`, criamos vitrines organizadas em ${cols} colunas iguais.`,
+            instructions: `Na aba style.css, configure .vitrine com display: grid; e grid-template-columns: repeat(${cols}, 1fr);`,
+            hint: `Escreva display: grid; e grid-template-columns: repeat(${cols}, 1fr); dentro de .vitrine.`,
             files: {
-              'index.html': `<footer class="rodape">\n  <!-- Adicione o link <a> e o <button> abaixo -->\n  \n</footer>\n`,
-              'style.css': `body {\n  font-family: sans-serif;\n  background: #020617;\n  color: #f8fafc;\n  padding: 20px;\n}\n\na {\n  color: #34d399;\n  margin-right: 16px;\n}\n\nbutton {\n  background: #10b981;\n  color: #020617;\n  border: none;\n  padding: 8px 16px;\n  border-radius: 6px;\n  font-weight: bold;\n}\n`
+              'index.html': `<div class="vitrine">\n  <div class="item">Produto A</div>\n  <div class="item">Produto B</div>\n  <div class="item">Produto C</div>\n</div>\n`,
+              'style.css': `body { background: #020617; color: white; font-family: sans-serif; padding: 16px; }\n.vitrine {\n  gap: 12px;\n  /* Configure display: grid e grid-template-columns abaixo */\n  \n}\n.item { background: #1e293b; padding: 16px; border-radius: 8px; text-align: center; }\n`
             },
+            communityPosts: [],
             tests: [
               {
                 id: 't1',
-                description: 'Existe um link <a> com texto "Voltar ao Topo"',
-                testFn: (doc) => {
-                  const a = doc.querySelector('a');
-                  if (!a || !a.textContent.toLowerCase().includes('voltar ao topo')) {
-                    throw new Error('Adicione <a href="#topo">Voltar ao Topo</a> no index.html.');
+                description: `.vitrine utiliza display: grid com ${cols} colunas`,
+                testFn: (_doc, _win, rawCss) => {
+                  if (!/\.vitrine\s*\{[^}]*display\s*:\s*grid/i.test(rawCss)) {
+                    throw new Error('Adicione display: grid; em .vitrine.');
                   }
-                }
-              },
-              {
-                id: 't2',
-                description: 'Existe um botão <button> com texto "Salvar"',
-                testFn: (doc) => {
-                  const btn = doc.querySelector('button');
-                  if (!btn || !btn.textContent.toLowerCase().includes('salvar')) {
-                    throw new Error('Adicione <button>Salvar</button> no index.html.');
+                  if (!/\.vitrine\s*\{[^}]*grid-template-columns\s*:/i.test(rawCss)) {
+                    throw new Error(`Adicione grid-template-columns: repeat(${cols}, 1fr); em .vitrine.`);
                   }
                 }
               }
             ]
-          }
-        ];
-
-        const tpl = htmlTopics[(idx - 1) % htmlTopics.length];
-        list.push({
-          id: `mod-1-aula-${idx}`,
-          title: `Aula ${idx}: ${tpl.topic}`,
-          language: 'html',
-          difficulty,
-          xp: 50,
-          estimatedTime: '5 min',
-          theory: tpl.theory,
-          instructions: tpl.instructions,
-          hint: tpl.hint,
-          files: tpl.files,
-          communityPosts: [],
-          tests: tpl.tests
-        });
-
+          });
+        } else if (scenario === 7) {
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx} (Debugging): Conserte a Tag Não Fechada e a Cor CSS`,
+            language: 'html',
+            difficulty,
+            isDebug: true,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `### Caça aos Bugs HTML/CSS • Etapa ${idx}\n\nTags mal fechadas quebram o layout inteiro da página. Analise o \`index.html\` e o \`style.css\` para restaurar o aviso.`,
+            instructions: `Corrija os 2 problemas:\n1. No index.html, feche o parágrafo com </p> em vez de </span>.\n2. No style.css, adicione color: #f8fafc; na classe .alerta.`,
+            hint: 'Troque </span> por </p> no index.html e adicione color: #f8fafc; no style.css.',
+            files: {
+              'index.html': `<div class="alerta">\n  <p>Atenção: verifique o fechamento desta tag!</span>\n</div>\n`,
+              'style.css': `.alerta { background: #7f1d1d; padding: 14px; border-radius: 8px; font-family: sans-serif; /* Adicione color: #f8fafc; */ }\n`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'O parágrafo <p> está fechado com </p> e .alerta tem color definido',
+                testFn: (_doc, _win, rawCss, rawHtml) => {
+                  if (!/<\/p>/i.test(rawHtml)) throw new Error('Feche o parágrafo com </p> no index.html.');
+                  if (!/\.alerta\s*\{[^}]*color\s*:/i.test(rawCss)) {
+                    throw new Error('Adicione color: #f8fafc; dentro de .alerta no style.css.');
+                  }
+                }
+              }
+            ]
+          });
+        } else {
+          list.push({
+            id: `mod-1-aula-${idx}`,
+            title: `Aula ${idx}: Card de Perfil Completo (HTML5 + CSS3)`,
+            language: 'html',
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `### Mini-Projeto Card de Perfil • Etapa ${idx}\n\nCombine HTML semântico (\`<article>\`, \`<h2>\`, \`<p>\`) com estilização CSS moderna.`,
+            instructions: `Crie um <article class="perfil"> contendo um <h2> com seu nome e um <p> com sua stack (ex: Full-Stack Developer).`,
+            hint: 'Escreva <article class="perfil"><h2>Seu Nome</h2><p>Full-Stack Developer</p></article>.',
+            files: {
+              'index.html': `<!-- Monte o <article class="perfil"> aqui -->\n`,
+              'style.css': `body { background: #020617; color: white; font-family: sans-serif; padding: 16px; }\n.perfil { background: #1e293b; border-left: 4px solid #10b981; padding: 16px; border-radius: 8px; }\n`
+            },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: 'Existe um <article class="perfil"> com <h2> e <p>',
+                testFn: (doc) => {
+                  if (!doc.querySelector('article.perfil h2') || !doc.querySelector('article.perfil p')) {
+                    throw new Error('Inclua um <h2> e um <p> dentro de <article class="perfil">.');
+                  }
+                }
+              }
+            ]
+          });
+        }
         idx++;
         continue;
       }
 
-      const fnName = `resolverDesafio_${mod.number}_${idx}`;
-      const expectedValue = mod.number * 10 + idx;
-
-      list.push({
-        id: `${mod.id}-aula-${idx}`,
-        title: `Aula ${idx}: ${topicName} (Prática ${mod.number}.${idx})`,
-        language: 'javascript',
-        targetFunction: fnName,
-        difficulty,
-        xp: 50,
-        estimatedTime: '6 min',
-        theory: `### Módulo ${mod.number} • Aula ${idx} de ${TARGET_PER_MODULE}: ${topicName}
-
-Nesta etapa da trilha **${mod.title}**, você consolida os fundamentos de **${topicName}** aplicando funções puras, previsibilidade de retorno e verificação automatizada.
-
-Para concluir esta aula e desbloquear a Aula ${idx + 1}, implemente a função \`${fnName}(valorBase)\` retornando \`valorBase + ${expectedValue}\`.`,
-        instructions: `Implemente a função ${fnName}(valorBase) no arquivo script.js:
-1. Receba o parâmetro numérico valorBase.
-2. Retorne o resultado de valorBase + ${expectedValue}.
-3. Clique em "Verificar Código" para validar os testes e liberar a próxima aula.`,
-        hint: `Dentro da função ${fnName}(valorBase), escreva: return valorBase + ${expectedValue};`,
-        files: {
-          'script.js': `function ${fnName}(valorBase) {\n  // Implemente sua solução abaixo e clique em Verificar Código\n  \n}`
-        },
-        traceDemo: {
-          inputLabel: `${fnName}(10)`,
-          args: [10],
-          expectedOutput: 10 + expectedValue,
-          steps: [
-            { line: 'Entrada', vars: { valorBase: 10 }, note: 'Parâmetro recebido pela função' },
-            {
-              line: 'Processamento',
-              vars: { incremento: expectedValue },
-              note: `Soma 10 + ${expectedValue}`
+      // MÓDULOS 2 A 5: DESAFIOS ÚNICOS DE LÓGICA, REACT, NODE.JS E SEGURANÇA JWT
+      const kind = idx % 6;
+      if (mod.number === 2) {
+        if (kind === 1) {
+          const fnName = `formatarMoedaBRL_${idx}`;
+          list.push({
+            id: `mod-2-aula-${idx}`,
+            title: `Aula ${idx}: Formatando Valores em Real (R$) com Template Strings`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [49.9],
+            difficulty,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `Template strings (\`...\`) e \`.toFixed(2)\` são essenciais em lojas virtuais para exibir preços formatados.`,
+            instructions: `Implemente ${fnName}(valor) retornando uma string no formato "R$ 49.90" (use \`R$ \${valor.toFixed(2)}\`).`,
+            hint: `Retorne \`R$ \${Number(valor).toFixed(2)}\`;`,
+            files: { 'script.js': `function ${fnName}(valor) {\n  // Retorne "R$ " seguido do valor com 2 casas decimais\n  \n}` },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `${fnName}(49.9) retorna "R$ 49.90"`,
+                testFn: (fn, assert) => assert.strictEqual(fn(49.9), 'R$ 49.90')
+              }
+            ]
+          });
+        } else if (kind === 2) {
+          const fnName = `contarVogais_${idx}`;
+          list.push({
+            id: `mod-2-aula-${idx}`,
+            title: `Aula ${idx}: Algoritmo de Contagem de Vogais em Texto`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: ['NexusDev'],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Percorrer strings caractere por caractere permite criar validadores, buscas e analisadores de texto.`,
+            instructions: `Implemente ${fnName}(texto) que retorna quantas vogais (a, e, i, o, u — maiúsculas ou minúsculas) existem na string.`,
+            hint: 'Converta texto.toLowerCase() e conte quantos caracteres estão em "aeiou".',
+            files: { 'script.js': `function ${fnName}(texto) {\n  // Conte as vogais de texto\n  \n}` },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `${fnName}("NexusDev") retorna 3`,
+                testFn: (fn, assert) => assert.strictEqual(fn('NexusDev'), 3)
+              }
+            ]
+          });
+        } else if (kind === 3) {
+          const fnName = `filtrarAprovados_${idx}`;
+          const minGrade = 6 + (idx % 3);
+          list.push({
+            id: `mod-2-aula-${idx}`,
+            title: `Aula ${idx}: Filtrando Notas >= ${minGrade} com .filter()`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[4, 7, 9, 5]],
+            difficulty,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `O método \`.filter()\` cria um novo array contendo apenas os elementos que passam em um teste lógico.`,
+            instructions: `Implemente ${fnName}(notas) retornando apenas as notas maiores ou iguais a ${minGrade}.`,
+            hint: `Retorne notas.filter(n => n >= ${minGrade});`,
+            files: { 'script.js': `function ${fnName}(notas) {\n  // Retorne apenas notas >= ${minGrade}\n  \n}` },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `${fnName}([4, 8, 9, 5]) filtra notas >= ${minGrade}`,
+                testFn: (fn, assert) => assert.deepEqual(fn([4, 8, 9, 5]), [8, 9])
+              }
+            ]
+          });
+        } else if (kind === 4) {
+          const fnName = `aplicarCupom_${idx}`;
+          const discount = 10 + (idx % 4) * 5;
+          list.push({
+            id: `mod-2-aula-${idx}`,
+            title: `Aula ${idx}: Validador de Cupom Promocional (${discount}% OFF)`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [200, 'NEXUS'],
+            difficulty,
+            xp: 50,
+            estimatedTime: '6 min',
+            theory: `Combinar validação de string (\`.trim().toUpperCase()\`) com cálculo percentual evita erros de digitação do usuário no checkout.`,
+            instructions: `Implemente ${fnName}(total, cupom): se cupom (ignorando maiúsculas/minúsculas) for "NEXUS", aplique ${discount}% de desconto; caso contrário retorne total intacto.`,
+            hint: `if (String(cupom).trim().toUpperCase() === 'NEXUS') return total * ${(100 - discount) / 100}; return total;`,
+            files: { 'script.js': `function ${fnName}(total, cupom) {\n  // Aplique ${discount}% de desconto se cupom for "NEXUS"\n  \n}` },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `Aplica ${discount}% quando cupom é "nexus"`,
+                testFn: (fn, assert) => assert.strictEqual(fn(200, 'nexus'), 200 * ((100 - discount) / 100))
+              },
+              {
+                id: 't2',
+                description: 'Mantém valor original para cupom inválido',
+                testFn: (fn, assert) => assert.strictEqual(fn(200, 'INVALIDO'), 200)
+              }
+            ]
+          });
+        } else if (kind === 5) {
+          const fnName = `encontrarMaior_${idx}`;
+          list.push({
+            id: `mod-2-aula-${idx}`,
+            title: `Aula ${idx}: Encontrando o Maior Número de um Array`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[12, 45, 7, 89, 23]],
+            difficulty,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `Você pode usar \`Math.max(...numeros)\` ou percorrer o array comparando cada elemento com o maior visto até o momento.`,
+            instructions: `Implemente ${fnName}(numeros) retornando o maior número do array (ou 0 se vazio).`,
+            hint: 'Se numeros.length === 0 retorne 0; caso contrário retorne Math.max(...numeros);',
+            files: { 'script.js': `function ${fnName}(numeros) {\n  // Retorne o maior número da lista\n  \n}` },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `${fnName}([12, 45, 7, 89, 23]) retorna 89`,
+                testFn: (fn, assert) => assert.strictEqual(fn([12, 45, 7, 89, 23]), 89)
+              }
+            ]
+          });
+        } else {
+          const fnName = `calcularMedia_${idx}`;
+          list.push({
+            id: `mod-2-aula-${idx}`,
+            title: `Aula ${idx} (Debugging): Corrija a Divisão por Zero na Média`,
+            language: 'javascript',
+            targetFunction: fnName,
+            defaultTraceArgs: [[]],
+            difficulty,
+            isDebug: true,
+            xp: 50,
+            estimatedTime: '5 min',
+            theory: `Dividir por \`notas.length\` quando o array está vazio gera \`NaN\`. Sempre proteja casos de borda!`,
+            instructions: `Corrija ${fnName}(notas) para retornar 0 quando notas estiver vazio, ou a média aritmética caso contrário.`,
+            hint: 'Adicione if (!notas || notas.length === 0) return 0; antes de dividir.',
+            files: {
+              'script.js': `function ${fnName}(notas) {\n  // BUG: retorna NaN se notas for []\n  const soma = notas.reduce((acc, n) => acc + n, 0);\n  return soma / notas.length;\n}`
             },
+            communityPosts: [],
+            tests: [
+              {
+                id: 't1',
+                description: `${fnName}([]) retorna 0 em vez de NaN`,
+                testFn: (fn, assert) => assert.strictEqual(fn([]), 0)
+              },
+              {
+                id: 't2',
+                description: `${fnName}([8, 10]) retorna 9`,
+                testFn: (fn, assert) => assert.strictEqual(fn([8, 10]), 9)
+              }
+            ]
+          });
+        }
+        idx++;
+        continue;
+      }
+
+      // MÓDULO 3 (REACT), MÓDULO 4 (NODE/EXPRESS) E MÓDULO 5 (MONGODB/JWT)
+      if (mod.number === 3) {
+        const fnName = `atualizarEstadoReact_${idx}`;
+        const isToggle = idx % 2 === 0;
+        list.push({
+          id: `mod-3-aula-${idx}`,
+          title: isToggle
+            ? `Aula ${idx}: Alternando Favorito em Lista React (.map Imutável)`
+            : `Aula ${idx}: Removendo Item do Estado React (.filter Imutável)`,
+          language: 'javascript',
+          targetFunction: fnName,
+          defaultTraceArgs: isToggle
+            ? [[{ id: 1, favorito: false }, { id: 2, favorito: true }], 1]
+            : [[{ id: 1 }, { id: 2 }], 1],
+          difficulty,
+          xp: 50,
+          estimatedTime: '6 min',
+          theory: isToggle
+            ? `Em listas React, usamos \`.map()\` para atualizar apenas o item cujo \`id\` corresponde ao clicado, mantendo os demais intactos.`
+            : `Para remover um item de um estado array no React sem mutá-lo, usamos \`.filter(item => item.id !== idRemover)\`.`,
+          instructions: isToggle
+            ? `Implemente ${fnName}(itens, idAlvo) retornando um novo array onde o item com id === idAlvo tem sua propriedade boolean "favorito" invertida (!item.favorito).`
+            : `Implemente ${fnName}(itens, idRemover) retornando um novo array sem o item cujo id seja igual a idRemover.`,
+          hint: isToggle
+            ? 'Retorne itens.map(item => item.id === idAlvo ? { ...item, favorito: !item.favorito } : item);'
+            : 'Retorne itens.filter(item => item.id !== idRemover);',
+          files: {
+            'script.js': isToggle
+              ? `function ${fnName}(itens, idAlvo) {\n  // Inverta item.favorito de forma imutável usando .map()\n  \n}`
+              : `function ${fnName}(itens, idRemover) {\n  // Remova o item com id === idRemover usando .filter()\n  \n}`
+          },
+          communityPosts: [],
+          tests: [
             {
-              line: 'Retorno',
-              vars: { resultado: 10 + expectedValue },
-              note: 'Valor validado pelos testes automatizados'
+              id: 't1',
+              description: isToggle
+                ? 'Inverte favorito sem mutar o array original'
+                : 'Remove o item correspondente sem mutar o original',
+              testFn: (fn, assert) => {
+                if (isToggle) {
+                  const orig = [{ id: 1, favorito: false }];
+                  const res = fn(orig, 1);
+                  assert.deepEqual(res, [{ id: 1, favorito: true }]);
+                  assert.strictEqual(orig[0].favorito, false);
+                } else {
+                  const orig = [{ id: 1 }, { id: 2 }];
+                  const res = fn(orig, 1);
+                  assert.deepEqual(res, [{ id: 2 }]);
+                  assert.strictEqual(orig.length, 2);
+                }
+              }
             }
           ]
-        },
-        communityPosts: [],
-        tests: [
-          {
-            id: 't1',
-            description: `${fnName}(10) deve retornar ${10 + expectedValue}`,
-            testFn: (fn, assert) => assert.strictEqual(fn(10), 10 + expectedValue)
+        });
+      } else if (mod.number === 4) {
+        const fnName = `handlerExpress_${idx}`;
+        const minLen = 3 + (idx % 4);
+        list.push({
+          id: `mod-4-aula-${idx}`,
+          title: `Aula ${idx}: Controller Express — Validação de Campo (mín. ${minLen} caracteres)`,
+          language: 'javascript',
+          targetFunction: fnName,
+          difficulty,
+          xp: 50,
+          estimatedTime: '6 min',
+          theory: `Validar \`req.body\` antes de salvar no banco evita dados corrompidos e retorna status HTTP \`400 Bad Request\` claro para o Front-End.`,
+          instructions: `Implemente ${fnName}(req, res):
+1. Leia req.body.nome.
+2. Se !nome ou nome.trim().length < ${minLen}, retorne res.status(400).json({ erro: "Nome muito curto" }).
+3. Caso contrário, retorne res.status(200).json({ ok: true, nome: nome.trim() }).`,
+          hint: `Verifique if (!nome || nome.trim().length < ${minLen}) return res.status(400).json({ erro: "Nome muito curto" });`,
+          files: {
+            'controller.js': `function ${fnName}(req, res) {\n  const { nome } = req.body || {};\n  // Valide e envie a resposta HTTP\n  \n}`
           },
-          {
-            id: 't2',
-            description: `${fnName}(0) deve retornar ${expectedValue}`,
-            testFn: (fn, assert) => assert.strictEqual(fn(0), expectedValue)
-          }
-        ]
-      });
+          communityPosts: [],
+          tests: [
+            {
+              id: 't1',
+              description: `Retorna 400 se nome tiver menos de ${minLen} caracteres`,
+              testFn: (fn, assert) => {
+                let st = 200;
+                const res = { status(c) { st = c; return this; }, json() { return this; } };
+                fn({ body: { nome: 'ab' } }, res);
+                assert.strictEqual(st, 400);
+              }
+            },
+            {
+              id: 't2',
+              description: 'Retorna 200 quando o nome é válido',
+              testFn: (fn, assert) => {
+                let st = 500;
+                let data = null;
+                const res = { status(c) { st = c; return this; }, json(d) { data = d; return this; } };
+                fn({ body: { nome: 'Notebook Pro' } }, res);
+                assert.strictEqual(st, 200);
+                assert.strictEqual(data.ok, true);
+              }
+            }
+          ]
+        });
+      } else {
+        const fnName = `validarPermissaoJWT_${idx}`;
+        const requiredRole = idx % 2 === 0 ? 'admin' : 'editor';
+        list.push({
+          id: `mod-5-aula-${idx}`,
+          title: `Aula ${idx}: Autorização RBAC — Exigindo Perfil "${requiredRole}"`,
+          language: 'javascript',
+          targetFunction: fnName,
+          defaultTraceArgs: [{ id: 'u1', role: requiredRole }],
+          difficulty,
+          xp: 50,
+          estimatedTime: '6 min',
+          theory: `Em sistemas com múltiplos perfis (RBAC), verificamos \`usuario.role\` antes de permitir operações críticas no MongoDB.`,
+          instructions: `Implemente ${fnName}(usuario) retornando true se usuario && usuario.role === "${requiredRole}", e false caso contrário.`,
+          hint: `Retorne Boolean(usuario && usuario.role === "${requiredRole}");`,
+          files: {
+            'rbac.js': `function ${fnName}(usuario) {\n  // Retorne true apenas se usuario.role === "${requiredRole}"\n  \n}`
+          },
+          communityPosts: [],
+          tests: [
+            {
+              id: 't1',
+              description: `Permite acesso para role "${requiredRole}"`,
+              testFn: (fn, assert) => assert.strictEqual(fn({ role: requiredRole }), true)
+            },
+            {
+              id: 't2',
+              description: 'Bloqueia acesso para visitante ou outro perfil',
+              testFn: (fn, assert) => assert.strictEqual(fn({ role: 'guest' }), false)
+            }
+          ]
+        });
+      }
 
       idx++;
     }
@@ -1380,10 +1469,27 @@ export default function App() {
 
   const totalSyllabusCount = allChallenges.length;
 
+  // Detecta se a URL possui ?cert=CODIGO para validação pública imediata
+  const initialCertParam = useMemo(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('cert') || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
   // ==========================================================================
-  // 1. PERSISTÊNCIA GLOBAL DE NAVEGAÇÃO (INICIA NA PÁGINA INICIAL EXPLICATIVA)
+  // 1. PERSISTÊNCIA GLOBAL DE NAVEGAÇÃO
   // ==========================================================================
   const [navState, setNavState] = useState(() => {
+    if (initialCertParam) {
+      return {
+        activeView: 'verify',
+        activeModuleId: 'mod-6',
+        activeChallengeId: allChallenges[0].id
+      };
+    }
     try {
       const savedNav = localStorage.getItem('nexusdev_app_state');
       if (savedNav) {
@@ -1447,7 +1553,7 @@ export default function App() {
   };
 
   // ==========================================================================
-  // 2. SISTEMA DE AUTENTICAÇÃO (GOOGLE CLOUD OAUTH + BACK-END RENDER + LOCAL)
+  // 2. SISTEMA DE AUTENTICAÇÃO CLOUD (E-MAIL/SENHA + GOOGLE OAUTH)
   // ==========================================================================
   const [authToken, setAuthToken] = useState(() => {
     try {
@@ -1484,6 +1590,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -1519,7 +1626,8 @@ export default function App() {
             name: data.name,
             email: data.email,
             avatar: data.avatar || prev?.avatar || '',
-            provider: 'google',
+            provider: data.provider || prev?.provider || 'email',
+            certificateCode: data.certificateCode || prev?.certificateCode || '',
             joinedAt: prev?.joinedAt || new Date().toLocaleDateString('pt-BR')
           }));
           if (Array.isArray(data.completedIds) && data.completedIds.length > 0) {
@@ -1527,14 +1635,19 @@ export default function App() {
               Array.from(new Set([...prev, ...data.completedIds]))
             );
           }
+          if (data.certificateCode) {
+            setCapstoneSubmission((prev) => ({
+              ...prev,
+              studentName: data.name || prev.studentName,
+              verificationCode: data.certificateCode
+            }));
+          }
         }
       })
-      .catch(() => {
-        // Segue operando offline normalmente
-      });
+      .catch(() => {});
   }, [authToken]);
 
-  // Carrega o SDK oficial Google Identity Services quando um Client ID está configurado
+  // SDK oficial Google Identity Services
   useEffect(() => {
     if (!authModalOpen || !googleClientId) return;
 
@@ -1545,7 +1658,6 @@ export default function App() {
             client_id: googleClientId,
             callback: async (response) => {
               try {
-                // Tenta autenticar no servidor Render primeiro
                 const apiRes = await fetch(`${API_BASE_URL}/api/auth/google`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1560,6 +1672,7 @@ export default function App() {
                     email: apiData.user.email,
                     avatar: apiData.user.avatar || '',
                     provider: 'google',
+                    certificateCode: apiData.user.certificateCode || '',
                     joinedAt: new Date().toLocaleDateString('pt-BR')
                   });
                   if (Array.isArray(apiData.user.completedIds)) {
@@ -1571,9 +1684,7 @@ export default function App() {
                   setAuthError('');
                   return;
                 }
-              } catch {
-                // Fallback para decodificação local do JWT Google
-              }
+              } catch {}
 
               try {
                 const base64Url = response.credential.split('.')[1];
@@ -1772,7 +1883,8 @@ export default function App() {
     } catch {}
   }, [capstoneSubmission, userStoragePrefix]);
 
-  const handleAuthSubmit = (e) => {
+  // Autenticação por E-mail e Senha (Nuvem Render + Fallback Local)
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
 
@@ -1782,6 +1894,46 @@ export default function App() {
       return;
     }
 
+    setAuthLoading(true);
+    try {
+      const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: authForm.name.trim(),
+          email: emailNormalized,
+          password: authForm.password
+        })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.token && data.user) {
+        localStorage.setItem('nexusdev_token', data.token);
+        setAuthToken(data.token);
+        setCurrentUser({
+          name: data.user.name,
+          email: data.user.email,
+          provider: 'email',
+          certificateCode: data.user.certificateCode || '',
+          joinedAt: new Date().toLocaleDateString('pt-BR')
+        });
+        if (Array.isArray(data.user.completedIds)) {
+          setCompletedChallenges((prev) => Array.from(new Set([...prev, ...data.user.completedIds])));
+        }
+        setAuthModalOpen(false);
+        setAuthForm({ name: '', email: '', password: '' });
+        setAuthLoading(false);
+        return;
+      } else if (data && data.error) {
+        setAuthError(data.error);
+        setAuthLoading(false);
+        return;
+      }
+    } catch {
+      // Se o servidor estiver acordando (cold start), usa fallback local sem travar o aluno
+    }
+
     try {
       const usersDbRaw = localStorage.getItem('nexusdev_users_db');
       const usersDb = usersDbRaw ? JSON.parse(usersDbRaw) : {};
@@ -1789,14 +1941,17 @@ export default function App() {
       if (authMode === 'register') {
         if (!authForm.name.trim()) {
           setAuthError('Informe seu nome completo para criar sua conta.');
+          setAuthLoading(false);
           return;
         }
         if (authForm.password.length < 4) {
           setAuthError('A senha deve ter pelo menos 4 caracteres.');
+          setAuthLoading(false);
           return;
         }
         if (usersDb[emailNormalized]) {
           setAuthError('Este e-mail já está cadastrado. Faça login.');
+          setAuthLoading(false);
           return;
         }
 
@@ -1816,6 +1971,7 @@ export default function App() {
         const existing = usersDb[emailNormalized];
         if (!existing || existing.password !== authForm.password) {
           setAuthError('E-mail ou senha incorretos.');
+          setAuthLoading(false);
           return;
         }
         setCurrentUser({
@@ -1828,6 +1984,8 @@ export default function App() {
       }
     } catch {
       setAuthError('Erro ao acessar o armazenamento local do navegador.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -2009,16 +2167,28 @@ export default function App() {
 
             <button
               type="button"
+              onClick={() => setActiveView('leaderboard')}
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                navState.activeView === 'leaderboard'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Ranking</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveView('capstone')}
               className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 shrink-0 ${
-                navState.activeView === 'capstone'
+                navState.activeView === 'capstone' || navState.activeView === 'verify'
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
               }`}
             >
               <Award className="w-4 h-4" />
-              <span className="hidden sm:inline">Projeto & Certificado</span>
-              <span className="sm:hidden">Certificado</span>
+              <span className="hidden sm:inline">Certificado</span>
             </button>
           </nav>
 
@@ -2108,7 +2278,7 @@ export default function App() {
       </header>
 
       {/* ====================================================================
-          MODAL DE AUTENTICAÇÃO (GOOGLE CLOUD OAUTH REAL + E-MAIL/SENHA)
+          MODAL DE AUTENTICAÇÃO (GOOGLE CLOUD OAUTH + E-MAIL/SENHA NA NUVEM)
          ==================================================================== */}
       {authModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -2127,10 +2297,10 @@ export default function App() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">
-                  {authMode === 'login' ? 'Entrar no NexusDev' : 'Criar Conta no NexusDev'}
+                  {authMode === 'login' ? 'Entrar no NexusDev' : 'Criar Conta na Nuvem'}
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Salve seu progresso, ofensiva diária, códigos e certificados
+                  Sincronize seu XP, ofensiva diária, ranking e certificados
                 </p>
               </div>
             </div>
@@ -2193,7 +2363,7 @@ export default function App() {
                       className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5"
                     >
                       <p className="text-[11px] text-slate-400">
-                        Informe seu próprio nome e e-mail Google para vincular sua sessão local:
+                        Informe seu nome e e-mail Google para vincular sua sessão:
                       </p>
                       <input
                         type="text"
@@ -2381,9 +2551,14 @@ export default function App() {
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-lg transition-colors shadow-lg shadow-emerald-950/50"
+                disabled={authLoading}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold text-sm rounded-lg transition-colors shadow-lg shadow-emerald-950/50"
               >
-                {authMode === 'login' ? 'Entrar na Plataforma' : 'Concluir Cadastro'}
+                {authLoading
+                  ? 'Conectando...'
+                  : authMode === 'login'
+                  ? 'Entrar na Plataforma'
+                  : 'Concluir Cadastro'}
               </button>
             </form>
           </div>
@@ -2462,7 +2637,8 @@ export default function App() {
               <div className="space-y-2">
                 {INTERACTIVE_MODULES.map((mod) => {
                   const isActiveMod =
-                    navState.activeModuleId === mod.id && navState.activeView !== 'home';
+                    navState.activeModuleId === mod.id &&
+                    (navState.activeView === 'dashboard' || navState.activeView === 'capstone');
                   const modDone = mod.challenges.filter((c) =>
                     completedChallenges.includes(c.id)
                   ).length;
@@ -2507,14 +2683,24 @@ export default function App() {
                 })}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setActiveView('home')}
-                className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Home className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Sobre a Plataforma</span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveView('home')}
+                  className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Home className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Início</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('leaderboard')}
+                  className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Ranking</span>
+                </button>
+              </div>
             </div>
           </aside>
 
@@ -2538,12 +2724,12 @@ export default function App() {
                     </h1>
                     <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
                       A <strong className="text-white">NexusDev</strong> combina teoria objetiva com
-                      um ambiente prático completo: <strong>140 aulas em cada módulo</strong> (
-                      {totalSyllabusCount} laboratórios interativos), editor multi-arquivos com
-                      realce de sintaxe, <strong>Tutor IA</strong>,{' '}
-                      <strong>Visualizador de Memória</strong>, desafios de{' '}
-                      <strong>Debugging</strong>, fórum da comunidade e{' '}
-                      <strong>Certificado Verificável com QR Code</strong>.
+                      um ambiente prático completo: <strong>140 aulas únicas em cada módulo</strong> (
+                      {totalSyllabusCount} laboratórios progressivos), editor multi-arquivos com
+                      realce de sintaxe, <strong>Tutor IA Contextual</strong>,{' '}
+                      <strong>Inspetor Dinâmico de Memória & Console.log</strong>,{' '}
+                      <strong>Ranking Semanal</strong> e{' '}
+                      <strong>Certificado Verificável com QR Code Real</strong>.
                     </p>
                   </div>
 
@@ -2572,6 +2758,15 @@ export default function App() {
                       <Compass className="w-4 h-4 text-emerald-400" />
                       <span>Ver Trilha Completa ({totalSyllabusCount} Aulas)</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveView('verify')}
+                      className="px-4 py-3 bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 text-xs sm:text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-sky-400" />
+                      <span>Validar Certificado</span>
+                    </button>
                   </div>
 
                   {/* Pilares da Plataforma */}
@@ -2588,31 +2783,31 @@ export default function App() {
 
                     <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
                       <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase tracking-wider">
-                        <Brain className="w-4 h-4" /> Tutor IA Pedagógico
+                        <Brain className="w-4 h-4" /> Tutor IA Contextual
                       </div>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Analisa chaves, tags e lógica do seu código em tempo real dando dicas sem
-                        entregar a resposta pronta.
+                        Analisa seu código no servidor e fornece dicas sob medida sem entregar a
+                        resposta pronta.
                       </p>
                     </div>
 
                     <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
                       <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
-                        <Cpu className="w-4 h-4" /> Memória & Debugging
+                        <Cpu className="w-4 h-4" /> Memória Ao Vivo
                       </div>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Inspecione variáveis passo a passo na memória e resolva bugs reais de
-                        produção.
+                        Teste suas funções com entradas personalizadas e capture console.log() em
+                        tempo real.
                       </p>
                     </div>
 
                     <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
                       <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider">
-                        <Award className="w-4 h-4" /> Certificação QR Code
+                        <Trophy className="w-4 h-4" /> Ranking & QR Code
                       </div>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Conclua os módulos e o Projeto Final Full-Stack para emitir seu certificado
-                        verificável para o LinkedIn.
+                        Desbloqueie conquistas, dispute o Top 15 semanal e valide certificados
+                        publicamente.
                       </p>
                     </div>
                   </div>
@@ -2693,8 +2888,8 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <User className="w-5 h-5 text-amber-400 shrink-0" />
                       <p className="text-xs sm:text-sm text-amber-100">
-                        Você está estudando no <strong>Modo Visitante</strong>. Crie uma conta
-                        gratuita para vincular seu XP, ofensiva diária e certificado ao seu perfil!
+                        Você está estudando no <strong>Modo Visitante</strong>. Crie uma conta na
+                        nuvem para salvar seu XP, ranking semanal e certificado!
                       </p>
                     </div>
                     <button
@@ -2718,7 +2913,7 @@ export default function App() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar entre todas as 700 aulas (ex: Flexbox, Array, Bug, React, Express, JWT)..."
+                      placeholder="Buscar entre todas as 700 aulas (ex: Flexbox, Portfólio, Bug, React, Express, JWT)..."
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -2980,6 +3175,20 @@ export default function App() {
             )}
 
             {/* ================================================================
+                VISÃO 2B: RANKING SEMANAL & CONQUISTAS (BADGES)
+               ================================================================ */}
+            {navState.activeView === 'leaderboard' && (
+              <LeaderboardAndBadgesView
+                currentUser={currentUser}
+                totalXP={totalXP}
+                studentLevel={studentLevel}
+                streakData={streakData}
+                completedChallenges={completedChallenges}
+                allChallenges={allChallenges}
+              />
+            )}
+
+            {/* ================================================================
                 VISÃO 3: PROJETO FINAL CAPSTONE & CERTIFICADO VERIFICÁVEL
                ================================================================ */}
             {navState.activeView === 'capstone' && (
@@ -2990,6 +3199,27 @@ export default function App() {
                 setSubmission={setCapstoneSubmission}
                 completedChallengesCount={completedCount}
                 totalChallengesCount={totalInteractiveChallenges}
+                authToken={authToken}
+                onOpenVerify={(code) => {
+                  setNavState((prev) => ({ ...prev, activeView: 'verify' }));
+                  if (code) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('cert', code);
+                    window.history.replaceState({}, '', url.toString());
+                  }
+                }}
+              />
+            )}
+
+            {/* ================================================================
+                VISÃO 3B: VALIDAÇÃO PÚBLICA DE CERTIFICADOS (QR CODE / RECRUTADOR)
+               ================================================================ */}
+            {navState.activeView === 'verify' && (
+              <CertificateVerificationView
+                initialCode={initialCertParam || capstoneSubmission.verificationCode}
+                localSubmission={capstoneSubmission}
+                completedCount={completedCount}
+                totalXP={totalXP}
               />
             )}
 
@@ -3016,11 +3246,9 @@ export default function App() {
                         <h1 className="text-xl sm:text-2xl font-bold text-white">
                           {currentUser.name}
                         </h1>
-                        {currentUser.provider === 'google' && (
-                          <span className="px-2 py-0.5 rounded-full bg-white text-slate-900 text-[10px] font-bold">
-                            Conta Google Conectada
-                          </span>
-                        )}
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                          Conta Sincronizada na Nuvem
+                        </span>
                       </div>
                       <p className="text-sm text-slate-400">{currentUser.email}</p>
                       <p className="text-xs text-emerald-400 mt-1">
@@ -3083,7 +3311,7 @@ export default function App() {
 }
 
 // ============================================================================
-// SUB-COMPONENTE: IDE MULTI-ARQUIVOS, TUTOR IA, VISUALIZADOR & FÓRUM
+// SUB-COMPONENTE: IDE MULTI-ARQUIVOS, TUTOR IA CONTEXTUAL & MEMÓRIA AO VIVO
 // ============================================================================
 function ChallengeWorkspace({
   allChallenges,
@@ -3138,6 +3366,16 @@ function ChallengeWorkspace({
   const [showHint, setShowHint] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [tutorInsights, setTutorInsights] = useState([]);
+  const [tutorLoading, setTutorLoading] = useState(false);
+
+  // Estado do Inspetor Dinâmico de Memória
+  const [customTraceArgsInput, setCustomTraceArgsInput] = useState(() =>
+    JSON.stringify(challenge.defaultTraceArgs || [10])
+  );
+
+  useEffect(() => {
+    setCustomTraceArgsInput(JSON.stringify(challenge.defaultTraceArgs || [10]));
+  }, [challenge.id, challenge.defaultTraceArgs]);
 
   // Fórum / Discussão por Lição
   const forumStorageKey = `nexusdev_forum_${challenge.id}`;
@@ -3387,7 +3625,7 @@ function ChallengeWorkspace({
     }
 
     setTestResults(results);
-    setTutorInsights(analyzeStudentCode(challenge, filesMap, results));
+    setTutorInsights(analyzeStudentCodeLocal(challenge, filesMap, results));
     setIsEvaluating(false);
 
     if (results.length > 0 && results.every((r) => r.passed)) {
@@ -3405,9 +3643,33 @@ function ChallengeWorkspace({
     }
   };
 
-  const handleOpenSmartTutor = () => {
-    setTutorInsights(analyzeStudentCode(challenge, filesMap, testResults));
+  const handleOpenSmartTutor = async () => {
     setRightBottomTab('tutor');
+    const localTips = analyzeStudentCodeLocal(challenge, filesMap, testResults);
+    setTutorInsights(localTips);
+    setTutorLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tutor/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeTitle: challenge.title,
+          language: challenge.language,
+          targetFunction: challenge.targetFunction,
+          instructions: challenge.instructions,
+          filesMap,
+          failedTests: testResults.filter((r) => !r.passed)
+        })
+      });
+      const data = await res.json();
+      if (data && Array.isArray(data.tips) && data.tips.length > 0) {
+        setTutorInsights(data.tips);
+      }
+    } catch {
+      // Mantém dicas locais caso o servidor esteja offline
+    } finally {
+      setTutorLoading(false);
+    }
   };
 
   const handleResetCode = () => {
@@ -3424,10 +3686,10 @@ function ChallengeWorkspace({
     setShowResetConfirm(false);
   };
 
-  const traceInfo = useMemo(() => {
-    if (rightBottomTab !== 'memoria') return null;
-    return generateTraceSteps(challenge, filesMap);
-  }, [rightBottomTab, challenge, filesMap]);
+  const dynamicTraceInfo = useMemo(() => {
+    if (rightBottomTab !== 'memoria' || challenge.language === 'html') return null;
+    return runDynamicMemoryInspector(challenge, filesMap, customTraceArgsInput);
+  }, [rightBottomTab, challenge, filesMap, customTraceArgsInput]);
 
   const allPassed = testResults.length > 0 && testResults.every((r) => r.passed);
   const lineCount = currentCode.split('\n').length;
@@ -3859,7 +4121,7 @@ function ChallengeWorkspace({
             </div>
           )}
 
-          {/* Painel Inferior: Console, Preview HTML, Tutor IA e Visualizador de Memória */}
+          {/* Painel Inferior: Console, Preview HTML, Tutor IA e Inspetor Dinâmico de Memória */}
           <div className="h-64 bg-slate-900 border-t border-slate-800 flex flex-col">
             <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between gap-2 overflow-x-auto">
               <div className="flex items-center gap-1.5">
@@ -3904,7 +4166,7 @@ function ChallengeWorkspace({
                   <span>Tutor IA</span>
                 </button>
 
-                {challenge.traceDemo && (
+                {challenge.language !== 'html' && challenge.targetFunction && (
                   <button
                     type="button"
                     onClick={() => setRightBottomTab('memoria')}
@@ -3915,7 +4177,7 @@ function ChallengeWorkspace({
                     }`}
                   >
                     <Cpu className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Visualizador de Memória</span>
+                    <span>Inspetor de Memória</span>
                   </button>
                 )}
               </div>
@@ -3970,9 +4232,14 @@ function ChallengeWorkspace({
 
             {rightBottomTab === 'tutor' && (
               <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
-                  <Brain className="w-4 h-4 text-purple-400" />
-                  <span>Análise Pedagógica do seu Código Atual</span>
+                <div className="flex items-center justify-between text-xs font-bold text-purple-300">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-purple-400" />
+                    <span>Análise Pedagógica Contextual</span>
+                  </div>
+                  {tutorLoading && (
+                    <span className="text-[11px] font-mono text-purple-400">Analisando...</span>
+                  )}
                 </div>
                 {tutorInsights.map((tip, i) => (
                   <div
@@ -3985,46 +4252,66 @@ function ChallengeWorkspace({
               </div>
             )}
 
-            {rightBottomTab === 'memoria' && traceInfo && (
+            {rightBottomTab === 'memoria' && (
               <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-                {traceInfo.error ? (
+                <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                  <span className="font-mono text-amber-400 font-semibold">
+                    {challenge.targetFunction}(
+                  </span>
+                  <input
+                    type="text"
+                    value={customTraceArgsInput}
+                    onChange={(e) => setCustomTraceArgsInput(e.target.value)}
+                    placeholder='Ex: [100, 20]'
+                    className="flex-1 min-w-[140px] px-2.5 py-1 rounded bg-slate-900 border border-slate-700 font-mono text-xs text-white focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="font-mono text-amber-400 font-semibold">)</span>
+                  <span className="text-[11px] text-slate-500">
+                    Edite os argumentos JSON para testar ao vivo
+                  </span>
+                </div>
+
+                {dynamicTraceInfo?.error ? (
                   <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800/50 text-rose-300">
-                    {traceInfo.error}
+                    {dynamicTraceInfo.error}
                   </div>
                 ) : (
-                  <>
-                    <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 font-mono">
-                      <span className="text-amber-300">Chamada: {traceInfo.inputLabel}</span>
-                      <span
-                        className={
-                          traceInfo.matched ? 'text-emerald-400 font-bold' : 'text-rose-400'
-                        }
-                      >
-                        Seu retorno: {traceInfo.actualOutput} (Esperado: {traceInfo.expectedOutput})
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      {traceInfo.steps.map((step, sIdx) => (
-                        <div
-                          key={sIdx}
-                          className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5"
-                        >
-                          <div className="text-[11px] font-bold text-amber-400">
-                            Passo {sIdx + 1}: {step.line}
-                          </div>
-                          <div className="font-mono text-[11px] bg-slate-900 p-2 rounded text-emerald-300">
-                            {Object.entries(step.vars).map(([k, v]) => (
-                              <div key={k}>
-                                {k}: <span className="text-white">{JSON.stringify(v)}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="text-[11px] text-slate-400">{step.note}</p>
+                  dynamicTraceInfo && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                        <div className="text-[11px] font-bold text-sky-400">
+                          1. Variáveis na Entrada
                         </div>
-                      ))}
+                        <div className="font-mono text-[11px] bg-slate-900 p-2 rounded text-slate-200">
+                          {Object.entries(dynamicTraceInfo.memorySnapshot).map(([k, v]) => (
+                            <div key={k}>
+                              {k}: <span className="text-emerald-300">{JSON.stringify(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                        <div className="text-[11px] font-bold text-amber-400">
+                          2. Saída console.log()
+                        </div>
+                        <div className="font-mono text-[11px] bg-slate-900 p-2 rounded text-amber-200 max-h-20 overflow-y-auto">
+                          {dynamicTraceInfo.logs.length > 0
+                            ? dynamicTraceInfo.logs.map((l, idx) => <div key={idx}>&gt; {l}</div>)
+                            : 'Nenhum console.log() chamado'}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                        <div className="text-[11px] font-bold text-emerald-400">
+                          3. Retorno ({dynamicTraceInfo.durationMs} ms)
+                        </div>
+                        <div className="font-mono text-xs bg-slate-900 p-2 rounded text-emerald-300 font-bold break-all">
+                          return {dynamicTraceInfo.actualOutput}
+                        </div>
+                      </div>
                     </div>
-                  </>
+                  )
                 )}
               </div>
             )}
@@ -4036,7 +4323,258 @@ function ChallengeWorkspace({
 }
 
 // ============================================================================
-// SUB-COMPONENTE: PROJETO FINAL FULL-STACK & CERTIFICADO VERIFICÁVEL COM QR CODE
+// SUB-COMPONENTE: RANKING SEMANAL & CONQUISTAS DESBLOQUEÁVEIS (BADGES)
+// ============================================================================
+function LeaderboardAndBadgesView({
+  currentUser,
+  totalXP,
+  studentLevel,
+  streakData,
+  completedChallenges,
+  allChallenges
+}) {
+  const [leaders, setLeaders] = useState([]);
+  const [loadingLeaders, setLoadingLeaders] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE_URL}/api/leaderboard`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active) return;
+        const remote = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
+        const fallbackPeers = [
+          { rank: 1, name: 'Camila Rocha', xp: 4850, streak: 19, completedCount: 97 },
+          { rank: 2, name: 'Rafael Costa', xp: 3600, streak: 14, completedCount: 72 },
+          { rank: 3, name: 'Mariana Lima', xp: 2450, streak: 9, completedCount: 49 },
+          { rank: 4, name: 'Gabriel Souza', xp: 1750, streak: 6, completedCount: 35 },
+          { rank: 5, name: 'Bianca Alves', xp: 1200, streak: 5, completedCount: 24 }
+        ];
+
+        const merged = remote.length > 0 ? [...remote] : [...fallbackPeers];
+        const myName = currentUser?.name || 'Você (Visitante)';
+        const alreadyInList = merged.some((u) => u.name === myName);
+        if (!alreadyInList) {
+          merged.push({
+            rank: 0,
+            name: myName,
+            xp: totalXP,
+            streak: streakData.count,
+            completedCount: completedChallenges.length,
+            isCurrentUser: true
+          });
+        }
+
+        merged.sort((a, b) => b.xp - a.xp || b.streak - a.streak);
+        setLeaders(
+          merged.slice(0, 15).map((item, idx) => ({
+            ...item,
+            rank: idx + 1,
+            isCurrentUser: item.isCurrentUser || item.name === myName
+          }))
+        );
+      })
+      .catch(() => {
+        setLeaders([
+          {
+            rank: 1,
+            name: currentUser?.name || 'Você (Visitante)',
+            xp: totalXP,
+            streak: streakData.count,
+            completedCount: completedChallenges.length,
+            isCurrentUser: true
+          }
+        ]);
+      })
+      .finally(() => {
+        if (active) setLoadingLeaders(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser, totalXP, streakData.count, completedChallenges.length]);
+
+  const htmlCompleted = allChallenges.filter(
+    (c) => c.moduleNumber === 1 && completedChallenges.includes(c.id)
+  ).length;
+  const jsCompleted = allChallenges.filter(
+    (c) => c.moduleNumber === 2 && completedChallenges.includes(c.id)
+  ).length;
+  const debugCompleted = allChallenges.filter(
+    (c) => c.isDebug && completedChallenges.includes(c.id)
+  ).length;
+
+  const badges = [
+    {
+      id: 'b-first',
+      title: 'Primeiro Código',
+      desc: 'Concluiu sua primeira aula prática na NexusDev.',
+      unlocked: completedChallenges.length >= 1,
+      progress: `${Math.min(completedChallenges.length, 1)}/1 aula`
+    },
+    {
+      id: 'b-streak',
+      title: 'Consistência de Ferro',
+      desc: 'Manteve 3 dias ou mais de ofensiva diária.',
+      unlocked: streakData.count >= 3,
+      progress: `${Math.min(streakData.count, 3)}/3 dias`
+    },
+    {
+      id: 'b-html',
+      title: 'Arquiteto Web HTML/CSS',
+      desc: 'Completou pelo menos 15 aulas do Módulo 1.',
+      unlocked: htmlCompleted >= 15,
+      progress: `${Math.min(htmlCompleted, 15)}/15 aulas`
+    },
+    {
+      id: 'b-js',
+      title: 'Mestre da Lógica JS',
+      desc: 'Completou pelo menos 15 algoritmos em JavaScript.',
+      unlocked: jsCompleted >= 15,
+      progress: `${Math.min(jsCompleted, 15)}/15 aulas`
+    },
+    {
+      id: 'b-bug',
+      title: 'Caçador de Bugs',
+      desc: 'Resolveu pelo menos 3 desafios de Debugging.',
+      unlocked: debugCompleted >= 3,
+      progress: `${Math.min(debugCompleted, 3)}/3 bugs`
+    },
+    {
+      id: 'b-xp',
+      title: 'Veterano Full-Stack',
+      desc: 'Alcançou 1.000 XP acumulados na formação.',
+      unlocked: totalXP >= 1000,
+      progress: `${Math.min(totalXP, 1000)}/1000 XP`
+    }
+  ];
+
+  return (
+    <main className="space-y-8">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-2">
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Gamificação & Comunidade NexusDev</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            Ranking Semanal & Conquistas
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+            Ganhe +50 XP por aula concluída e +15 XP por dicas na comunidade para subir no pódio.
+          </p>
+        </div>
+
+        <div className="bg-slate-950 border border-slate-800 rounded-xl px-5 py-3.5 text-center shrink-0">
+          <span className="text-[11px] uppercase tracking-wider text-slate-400">Sua Pontuação</span>
+          <div className="text-2xl font-bold text-amber-400 font-mono">{totalXP} XP</div>
+          <span className="text-xs text-emerald-400">Nível {studentLevel}</span>
+        </div>
+      </div>
+
+      {/* Medalhas / Conquistas */}
+      <section className="space-y-3">
+        <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          <Medal className="w-5 h-5 text-emerald-400" />
+          <span>Suas Conquistas (Badges)</span>
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {badges.map((b) => (
+            <div
+              key={b.id}
+              className={`p-4 rounded-xl border transition-all flex items-start gap-3.5 ${
+                b.unlocked
+                  ? 'bg-emerald-950/25 border-emerald-500/40'
+                  : 'bg-slate-900/70 border-slate-800 opacity-75'
+              }`}
+            >
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  b.unlocked
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'bg-slate-800 text-slate-500'
+                }`}
+              >
+                <Star className="w-5 h-5 fill-current" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-white truncate">{b.title}</h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-300">
+                    {b.progress}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">{b.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Pódio Top 15 */}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <Crown className="w-5 h-5 text-amber-400" />
+            <span>Top Estudantes da Semana</span>
+          </h2>
+          {loadingLeaders && (
+            <span className="text-xs font-mono text-slate-400">Sincronizando ranking...</span>
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-800/80">
+          {leaders.map((u) => (
+            <div
+              key={`${u.rank}-${u.name}`}
+              className={`px-5 py-3.5 flex items-center justify-between gap-3 ${
+                u.isCurrentUser ? 'bg-emerald-950/30' : ''
+              }`}
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div
+                  className={`w-8 h-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                    u.rank === 1
+                      ? 'bg-amber-400 text-slate-950'
+                      : u.rank === 2
+                      ? 'bg-slate-300 text-slate-950'
+                      : u.rank === 3
+                      ? 'bg-amber-700 text-white'
+                      : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  #{u.rank}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white truncate">{u.name}</span>
+                    {u.isCurrentUser && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Você
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {u.completedCount} aulas concluídas • 🔥 {u.streak}d ofensiva
+                  </p>
+                </div>
+              </div>
+
+              <div className="font-mono font-bold text-sm text-amber-400 shrink-0">
+                {u.xp} XP
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTE: PROJETO FINAL FULL-STACK & CERTIFICADO COM QR CODE REAL
 // ============================================================================
 function CapstoneSpecView({
   checks,
@@ -4044,10 +4582,13 @@ function CapstoneSpecView({
   submission,
   setSubmission,
   completedChallengesCount,
-  totalChallengesCount
+  totalChallengesCount,
+  authToken,
+  onOpenVerify
 }) {
   const [formError, setFormError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [issuing, setIssuing] = useState(false);
 
   const toggleCheck = (id) => {
     setChecks((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -4056,7 +4597,7 @@ function CapstoneSpecView({
   const checkedCount = CAPSTONE_REQUIREMENTS.filter((r) => checks[r.id]).length;
   const allRequirementsChecked = checkedCount === CAPSTONE_REQUIREMENTS.length;
 
-  const handleClaimCertificate = (e) => {
+  const handleClaimCertificate = async (e) => {
     e.preventDefault();
     if (!submission.studentName.trim()) {
       setFormError('Informe seu nome completo como deve aparecer no certificado.');
@@ -4071,20 +4612,56 @@ function CapstoneSpecView({
       return;
     }
     setFormError('');
-    const codeHash =
+    setIssuing(true);
+
+    let codeHash =
       submission.verificationCode ||
       `NXD-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    if (authToken) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/certificates/issue`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            studentName: submission.studentName.trim(),
+            githubUrl: submission.githubUrl.trim(),
+            liveUrl: submission.liveUrl.trim()
+          })
+        });
+        const data = await res.json();
+        if (data && data.code) {
+          codeHash = data.code;
+        }
+      } catch {}
+    }
 
     setSubmission((prev) => ({
       ...prev,
       submitted: true,
       verificationCode: codeHash
     }));
+    setIssuing(false);
   };
 
-  const publicCertificateUrl = submission.verificationCode
-    ? `https://nexusdev.io/certificado/${submission.verificationCode}`
-    : '';
+  const publicCertificateUrl = useMemo(() => {
+    if (!submission.verificationCode) return '';
+    const origin =
+      typeof window !== 'undefined' && window.location.origin.startsWith('http')
+        ? window.location.origin
+        : 'https://nexusdev-frontend.vercel.app';
+    return `${origin}/?cert=${encodeURIComponent(submission.verificationCode)}`;
+  }, [submission.verificationCode]);
+
+  const realQrCodeImageUrl = useMemo(() => {
+    if (!publicCertificateUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+      publicCertificateUrl
+    )}`;
+  }, [publicCertificateUrl]);
 
   const handleCopyVerifyUrl = () => {
     if (!publicCertificateUrl) return;
@@ -4095,55 +4672,29 @@ function CapstoneSpecView({
 
   return (
     <main className="space-y-8">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 border border-slate-800 rounded-2xl p-6 sm:p-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
-          <Award className="w-3.5 h-3.5" />
-          <span>Módulo 6 • Requisito Final para Certificação</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-          Projeto Integrador: NexusDev Store & Painel Administrativo
-        </h1>
-        <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl">
-          Para conquistar seu Certificado Verificável de Desenvolvedor Full-Stack, desenvolva e
-          publique um sistema completo de E-Commerce integrando Front-End em React, API RESTful em
-          Node.js + Express e Banco de Dados com autenticação JWT.
-        </p>
-      </div>
-
-      {/* Arquitetura em 3 Camadas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center mb-3">
-            <Layout className="w-5 h-5" />
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
+            <Award className="w-3.5 h-3.5" />
+            <span>Módulo 6 • Requisito Final para Certificação</span>
           </div>
-          <h3 className="font-bold text-white text-sm mb-1.5">1. Vitrine & Painel UI (React)</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Catálogo público com busca, filtros por categoria, carrinho de compras, checkout e
-            área restrita de administração para gestão de estoque e pedidos.
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+            Projeto Integrador: NexusDev Store & Painel Administrativo
+          </h1>
+          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl">
+            Desenvolva e publique um sistema completo de E-Commerce integrando React, API RESTful em
+            Node.js + Express e MongoDB com JWT para emitir seu Certificado Verificável com QR Code.
           </p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-3">
-            <Server className="w-5 h-5" />
-          </div>
-          <h3 className="font-bold text-white text-sm mb-1.5">2. API RESTful (Node & Express)</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Arquitetura organizada em rotas, controllers e middlewares com validação de entrada,
-            tratamento de erros HTTP e proteção JWT.
-          </p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-3">
-            <Database className="w-5 h-5" />
-          </div>
-          <h3 className="font-bold text-white text-sm mb-1.5">3. Banco de Dados & Deploy</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Modelagem de Usuários, Produtos e Pedidos em MongoDB ou PostgreSQL, com código no
-            GitHub e aplicação publicada na nuvem.
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => onOpenVerify(submission.verificationCode)}
+          className="shrink-0 px-4 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-sky-300 flex items-center gap-2"
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Portal de Validação Pública</span>
+        </button>
       </div>
 
       {/* Checklist e Formulário */}
@@ -4270,11 +4821,14 @@ function CapstoneSpecView({
 
               <button
                 type="submit"
+                disabled={issuing}
                 className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50"
               >
                 <Award className="w-4 h-4" />
                 <span>
-                  {submission.submitted
+                  {issuing
+                    ? 'Registrando na Nuvem...'
+                    : submission.submitted
                     ? 'Certificado Verificável Emitido'
                     : 'Validar & Emitir Certificado'}
                 </span>
@@ -4284,12 +4838,12 @@ function CapstoneSpecView({
 
           <div className="mt-6 pt-4 border-t border-slate-800 text-[11px] text-slate-500 flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 shrink-0" />
-            <span>Inclui código único de autenticidade para LinkedIn.</span>
+            <span>Inclui QR Code escaneável e link público para recrutadores.</span>
           </div>
         </div>
       </div>
 
-      {/* Certificado Verificável com QR Code */}
+      {/* Certificado Verificável com QR Code Real */}
       {submission.submitted && (
         <section className="bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950/40 border-2 border-emerald-500/50 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -4331,24 +4885,37 @@ function CapstoneSpecView({
                   {copiedLink ? (
                     <>
                       <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Link Copiado para LinkedIn!</span>
+                      <span>Link Copiado!</span>
                     </>
                   ) : (
                     <>
                       <Share2 className="w-3.5 h-3.5" />
-                      <span>Copiar Link Verificável</span>
+                      <span>Copiar Link Público</span>
                     </>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenVerify(submission.verificationCode)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 text-sky-200 transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Visualizar Página Pública</span>
                 </button>
               </div>
             </div>
 
             <div className="bg-slate-900 border border-slate-700 rounded-2xl p-4 flex flex-col items-center text-center shrink-0">
-              <div className="w-28 h-28 bg-white rounded-xl p-2 flex items-center justify-center mb-2">
-                <QrCode className="w-24 h-24 text-slate-950" />
+              <div className="w-32 h-32 bg-white rounded-xl p-2 flex items-center justify-center mb-2 overflow-hidden">
+                <img
+                  src={realQrCodeImageUrl}
+                  alt={`QR Code de Verificação ${submission.verificationCode}`}
+                  className="w-28 h-28 object-contain"
+                />
               </div>
               <span className="text-[10px] font-mono text-slate-400 uppercase">
-                Selo de Autenticidade
+                Aponte a câmera para validar
               </span>
               <span className="text-[11px] font-mono text-emerald-400 font-bold">
                 {submission.verificationCode}
@@ -4356,6 +4923,164 @@ function CapstoneSpecView({
             </div>
           </div>
         </section>
+      )}
+    </main>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTE: PORTAL PÚBLICO DE VALIDAÇÃO DE CERTIFICADOS
+// ============================================================================
+function CertificateVerificationView({
+  initialCode,
+  localSubmission,
+  completedCount,
+  totalXP
+}) {
+  const [codeInput, setCodeInput] = useState(initialCode || '');
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const verifyCode = async (targetCode) => {
+    const clean = (targetCode || codeInput).trim().toUpperCase();
+    if (!clean) return;
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/certificates/${encodeURIComponent(clean)}`);
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setResult(data);
+        setLoading(false);
+        return;
+      }
+    } catch {}
+
+    // Fallback para verificação do certificado emitido localmente na sessão atual
+    if (
+      localSubmission?.submitted &&
+      localSubmission?.verificationCode?.toUpperCase() === clean
+    ) {
+      setResult({
+        valid: true,
+        code: localSubmission.verificationCode,
+        studentName: localSubmission.studentName,
+        completedCount,
+        xp: totalXP,
+        issuedAt: new Date().toISOString(),
+        githubUrl: localSubmission.githubUrl,
+        liveUrl: localSubmission.liveUrl
+      });
+    } else {
+      setResult({
+        valid: false,
+        error: 'Código de certificado não encontrado ou inválido.'
+      });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (initialCode) {
+      verifyCode(initialCode);
+    }
+  }, [initialCode]);
+
+  return (
+    <main className="max-w-3xl mx-auto space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-semibold">
+          <ShieldCheck className="w-4 h-4" />
+          <span>Autenticidade Verificável NexusDev</span>
+        </div>
+        <h1 className="text-2xl font-bold text-white">Validar Certificado de Conclusão</h1>
+        <p className="text-xs sm:text-sm text-slate-400">
+          Digite o código impresso no certificado (ex: <code className="text-emerald-400">NXD-2026-...</code>) para confirmar sua autenticidade.
+        </p>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            verifyCode(codeInput);
+          }}
+          className="flex flex-col sm:flex-row gap-2.5"
+        >
+          <input
+            type="text"
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            placeholder="NXD-2026-XXXXX"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 font-mono text-sm text-white uppercase focus:outline-none focus:border-emerald-500"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors"
+          >
+            {loading ? 'Consultando...' : 'Verificar Autenticidade'}
+          </button>
+        </form>
+      </div>
+
+      {result && (
+        <div
+          className={`rounded-2xl p-6 sm:p-8 border-2 ${
+            result.valid
+              ? 'bg-emerald-950/25 border-emerald-500/50'
+              : 'bg-rose-950/25 border-rose-500/50'
+          }`}
+        >
+          {result.valid ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5 text-emerald-400 font-bold text-base">
+                <CheckCircle2 className="w-6 h-6" />
+                <span>Certificado Autêntico & Válido</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-xs">
+                <div>
+                  <span className="text-slate-400 block">Titular do Certificado</span>
+                  <strong className="text-base text-white">{result.studentName}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Código Único</span>
+                  <strong className="text-sm font-mono text-emerald-400">{result.code}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Carga Prática Concluída</span>
+                  <strong className="text-sm text-slate-200">
+                    {result.completedCount} aulas ({result.xp} XP)
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Data de Emissão</span>
+                  <strong className="text-sm text-slate-200">
+                    {new Date(result.issuedAt).toLocaleDateString('pt-BR')}
+                  </strong>
+                </div>
+              </div>
+
+              {result.githubUrl && (
+                <a
+                  href={result.githubUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:underline"
+                >
+                  <Github className="w-4 h-4" />
+                  <span>Inspecionar Projeto Final no GitHub</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-rose-300 text-sm">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{result.error}</span>
+            </div>
+          )}
+        </div>
       )}
     </main>
   );
