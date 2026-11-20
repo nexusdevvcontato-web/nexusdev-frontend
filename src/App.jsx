@@ -4234,7 +4234,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <div>
             <h2 className="text-base font-bold text-white">Confirmar identidade novamente</h2>
-            <p className="text-sm text-slate-400 mt-1">Esta confirmação prepara uma prova de uso único, válida por cinco minutos. Ela ainda não executa exclusão de conta nem outra ação sensível.</p>
+            <p className="text-sm text-slate-400 mt-1">Esta confirmação prepara uma prova de uso único, válida por cinco minutos, usada para autorizar a exportação dos seus dados. Ela não executa exclusão de conta.</p>
           </div>
           {isGoogleAccount ? (
             <div className="space-y-2">
