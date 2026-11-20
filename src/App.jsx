@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { apiFetch } from './api/client.js';
+import { apiFetch, API_BASE_URL } from './api/client.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, clearLocalCsrfCookie } from './auth/session-client.js';
 import {
   Code2,
