@@ -4212,7 +4212,8 @@ function ChallengeWorkspace({
   const {
     filesMap, setFilesMap, reset: resetDraft,
     status: draftSyncStatus, conflict: draftConflict,
-    useCloudVersion, keepLocalVersion, retry: retryDraftLoad
+    useCloudVersion, keepLocalVersion, retry: retryDraftLoad, retrySave: retryDraftSave,
+    isReady: draftSyncReady
   } = useLessonDraftSync({
     challengeId: challenge.id,
     initialFiles: challenge.files || {},
@@ -4622,7 +4623,7 @@ function ChallengeWorkspace({
                   : currentUser ? 'Rascunho local aguardando sincronização' : 'Rascunho salvo neste dispositivo'}
               </span>
               {draftSyncStatus === 'offline' && currentUser && (
-                <button type="button" onClick={retryDraftLoad} className="text-emerald-300 hover:text-emerald-200 underline">
+                <button type="button" onClick={draftSyncReady ? retryDraftSave : retryDraftLoad} className="text-emerald-300 hover:text-emerald-200 underline">
                   Tentar sincronizar
                 </button>
               )}
