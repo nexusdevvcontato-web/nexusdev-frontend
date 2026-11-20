@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveAuthenticatedApiUrl } from '../src/auth/request-url-policy.js';
+import { readFile } from 'node:fs/promises';
+
+const sessionClientSource = await readFile(new URL('../src/auth/session-client.js', import.meta.url), 'utf8');
 
 const origin = 'https://nexusdev-frontend.vercel.app';
 
@@ -54,4 +57,10 @@ test('requires explicit URL and origin inputs', () => {
   assert.throws(() => resolveAuthenticatedApiUrl('/api/me'));
   assert.throws(() => resolveAuthenticatedApiUrl('', { origin }));
   assert.throws(() => resolveAuthenticatedApiUrl(42, { origin }));
+});
+
+test('authenticatedFetch validates and uses the safe API URL before attaching its bearer token', () => {
+  assert.match(sessionClientSource, /resolveAuthenticatedApiUrl\(url/);
+  assert.match(sessionClientSource, /return fetch\(safeUrl/);
+  assert.doesNotMatch(sessionClientSource, /return fetch\(url,/);
 });
