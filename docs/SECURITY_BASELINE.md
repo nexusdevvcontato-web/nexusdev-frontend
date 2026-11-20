@@ -74,3 +74,9 @@ the legacy application is already compliant.
 - The lockfile was regenerated with npm 10.8.2, lockfile v3, and is committed with the manifest.
 - CI uses `npm ci`, runs the security regression tests, reports npm audit details, enforces `npm audit --audit-level=low`, then builds.
 - On the CI run for the refreshed lockfile, npm reported **0 vulnerabilities**, all four frontend security regression tests passed, and Vite completed the build successfully.
+
+## Authenticated request URL allowlist
+
+- `authenticatedFetch` now resolves every target against the configured API base and rejects non-`/api/` paths, cross-origin destinations, protocol-relative URLs, lookalike domains, and credential-bearing URLs before it attaches the in-memory Bearer token.
+- When `VITE_API_BASE_URL` is unset, only same-origin `/api/` routes are accepted (the Vercel Preview/production rewrite model). When configured, only the configured API origin is accepted.
+- Added Node regression tests for same-origin and configured-backend requests, external-domain/token-exfiltration attempts, protocol-relative URLs, path traversal, invalid schemes, and confirmation that `authenticatedFetch` actually sends the validated URL.
