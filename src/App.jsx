@@ -2341,37 +2341,48 @@ export default function App() {
   }, [googleClientId]);
 
   useEffect(() => {
-    if (!authToken) return;
+    let active = true;
+    if (!authToken) {
+      setCurrentUser(null);
+      return () => { active = false; };
+    }
+
     fetch(`${API_BASE_URL}/api/me`, {
       headers: { Authorization: `Bearer ${authToken}` }
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Sessão inválida');
+        return res.json();
+      })
       .then((data) => {
-        if (data && data.email) {
-          setCurrentUser((prev) => ({
+        if (!active || !data?.email) return;
+        setCurrentUser((prev) => ({
+          name: data.name,
+          email: data.email,
+          avatar: data.avatar || '',
+          provider: data.provider || prev?.provider || 'email',
+          certificateCode: data.certificateCode || '',
+          joinedAt: prev?.joinedAt || new Date().toLocaleDateString('pt-BR')
+        }));
+        if (Array.isArray(data.completedIds)) {
+          setCompletedChallenges(data.completedIds);
+        }
+        if (data.certificateCode) {
+          setCapstoneSubmission((prev) => ({
             ...prev,
-            name: data.name,
-            email: data.email,
-            avatar: data.avatar || prev?.avatar || '',
-            provider: data.provider || prev?.provider || 'email',
-            certificateCode: data.certificateCode || prev?.certificateCode || '',
-            joinedAt: prev?.joinedAt || new Date().toLocaleDateString('pt-BR')
+            studentName: data.name || prev.studentName,
+            verificationCode: data.certificateCode
           }));
-          if (Array.isArray(data.completedIds) && data.completedIds.length > 0) {
-            setCompletedChallenges((prev) =>
-              Array.from(new Set([...prev, ...data.completedIds]))
-            );
-          }
-          if (data.certificateCode) {
-            setCapstoneSubmission((prev) => ({
-              ...prev,
-              studentName: data.name || prev.studentName,
-              verificationCode: data.certificateCode
-            }));
-          }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        setCurrentUser(null);
+        setAuthToken('');
+        try { localStorage.removeItem('nexusdev_token'); } catch {}
+      });
+
+    return () => { active = false; };
   }, [authToken]);
 
   useEffect(() => {
