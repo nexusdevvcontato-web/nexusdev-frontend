@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiFetch, API_BASE_URL } from './api/client.js';
-import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, finalizeSessionLogout } from './auth/session-client.js';
+import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, getSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, finalizeSessionLogout } from './auth/session-client.js';
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
 import {
@@ -2108,13 +2108,34 @@ export default function App() {
   // SISTEMA DE AUTENTICAÇÃO CLOUD (E-MAIL/SENHA + GOOGLE OAUTH)
   // ==========================================================================
   const [authToken, setAuthToken] = useState('');
+  const [sessionBootstrapComplete, setSessionBootstrapComplete] = useState(false);
+  const [sessionIdentityResolved, setSessionIdentityResolved] = useState(false);
+  const [sessionIdentityError, setSessionIdentityError] = useState(false);
 
   useEffect(() => {
     let active = true;
     try { localStorage.removeItem('nexusdev_token'); } catch {}
     refreshSession()
-      .then((token) => { if (active) setAuthToken(token || ''); })
-      .catch(() => { if (active) setAuthToken(''); });
+      .then((token) => {
+        if (!active) return;
+        // A login may complete while the initial refresh is in flight. Prefer
+        // the session client's current token over a stale refresh result.
+        const resolvedToken = getSessionAccessToken() || token || '';
+        setAuthToken(resolvedToken);
+        if (!resolvedToken) setSessionIdentityResolved(true);
+        setSessionBootstrapComplete(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        const currentToken = getSessionAccessToken();
+        if (currentToken) {
+          setAuthToken(currentToken);
+        } else {
+          setAuthToken('');
+          setSessionIdentityResolved(true);
+        }
+        setSessionBootstrapComplete(true);
+      });
     return () => { active = false; };
   }, []);
 
@@ -2122,6 +2143,8 @@ export default function App() {
     if (event.type === 'logout') {
       setAuthToken('');
       setCurrentUser(null);
+      setSessionIdentityError(false);
+      setSessionIdentityResolved(true);
     } else if (event.type === 'token') {
       setAuthToken(event.token || '');
     }
@@ -2137,6 +2160,8 @@ export default function App() {
         if (active && !token) {
           setAuthToken('');
           setCurrentUser(null);
+          setSessionIdentityError(false);
+          setSessionIdentityResolved(true);
         }
       } catch {}
     };
@@ -2155,6 +2180,58 @@ export default function App() {
   }, [authToken]);
 
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Refresh cookies restore authentication, not the client-side account profile.
+  // Resolve /api/me before opening any account-scoped local storage namespace.
+  useEffect(() => {
+    if (currentUser?.id) {
+      setSessionIdentityError(false);
+      setSessionIdentityResolved(true);
+      return undefined;
+    }
+    if (!sessionBootstrapComplete) return undefined;
+    if (!authToken) {
+      setSessionIdentityResolved(true);
+      return undefined;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    setSessionIdentityResolved(false);
+    setSessionIdentityError(false);
+    authenticatedFetch(`${API_BASE_URL}/api/me`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    }).then(async (response) => {
+      const user = await response.json().catch(() => ({}));
+      if (!response.ok || typeof user?.id !== 'string' || !/^[a-f0-9]{24}$/i.test(user.id)) {
+        throw new Error('session_identity_unavailable');
+      }
+      if (!active) return;
+      setCurrentUser({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar || '',
+        provider: user.provider || 'email',
+        certificateCode: user.certificateCode || '',
+        joinedAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR') : ''
+      });
+      if (Array.isArray(user.completedIds)) setCompletedChallenges(user.completedIds);
+      setSessionIdentityResolved(true);
+    }).catch((error) => {
+      if (!active || error?.name === 'AbortError') return;
+      setSessionIdentityError(true);
+      setSessionIdentityResolved(true);
+    });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [authToken, currentUser?.id, sessionBootstrapComplete]);
 
   const [googleClientId, setGoogleClientId] = useState(() => {
     try {
@@ -2338,7 +2415,7 @@ export default function App() {
 
   const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('nexusdev_guest');
   const [storageLoadError, setStorageLoadError] = useState(false);
-  const storageIdentityReady = !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
+  const storageIdentityReady = sessionIdentityResolved && !sessionIdentityError && !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('Todas');
@@ -3871,6 +3948,12 @@ export default function App() {
           />
         )}
       </div>
+      ) : sessionIdentityError ? (
+        <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
+          <p>Não foi possível confirmar sua sessão com segurança.</p>
+          <p className="text-slate-400">A área pessoal permanece bloqueada para evitar abrir os dados de outro perfil. Verifique sua conexão e tente novamente.</p>
+          <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-slate-800 px-4 py-2 text-white hover:bg-slate-700">Tentar novamente</button>
+        </main>
       ) : storageLoadError ? (
         <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
           <p>Não foi possível ler os dados locais deste perfil com segurança.</p>
