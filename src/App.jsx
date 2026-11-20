@@ -2181,57 +2181,7 @@ export default function App() {
 
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Refresh cookies restore authentication, not the client-side account profile.
-  // Resolve /api/me before opening any account-scoped local storage namespace.
-  useEffect(() => {
-    if (currentUser?.id) {
-      setSessionIdentityError(false);
-      setSessionIdentityResolved(true);
-      return undefined;
-    }
-    if (!sessionBootstrapComplete) return undefined;
-    if (!authToken) {
-      setSessionIdentityResolved(true);
-      return undefined;
-    }
 
-    let active = true;
-    const controller = new AbortController();
-    setSessionIdentityResolved(false);
-    setSessionIdentityError(false);
-    authenticatedFetch(`${API_BASE_URL}/api/me`, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: { Accept: 'application/json' },
-      cache: 'no-store'
-    }).then(async (response) => {
-      const user = await response.json().catch(() => ({}));
-      if (!response.ok || typeof user?.id !== 'string' || !/^[a-f0-9]{24}$/i.test(user.id)) {
-        throw new Error('session_identity_unavailable');
-      }
-      if (!active) return;
-      setCurrentUser({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar || '',
-        provider: user.provider || 'email',
-        certificateCode: user.certificateCode || '',
-        joinedAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR') : ''
-      });
-      if (Array.isArray(user.completedIds)) setCompletedChallenges(user.completedIds);
-      setSessionIdentityResolved(true);
-    }).catch((error) => {
-      if (!active || error?.name === 'AbortError') return;
-      setSessionIdentityError(true);
-      setSessionIdentityResolved(true);
-    });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [authToken, currentUser?.id, sessionBootstrapComplete]);
 
   const [googleClientId, setGoogleClientId] = useState(() => {
     try {
@@ -2295,28 +2245,36 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
+    if (!sessionBootstrapComplete) return () => { active = false; };
     if (!authToken) {
       setCurrentUser(null);
+      setSessionIdentityResolved(true);
       return () => { active = false; };
     }
 
+    setSessionIdentityResolved(false);
+    setSessionIdentityError(false);
     authenticatedFetch(`${API_BASE_URL}/api/me`, {
-      headers: { Authorization: `Bearer ${authToken}` }
+      headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
+      cache: 'no-store'
     })
       .then((res) => {
         if (!res.ok) throw new Error('Sessão inválida');
         return res.json();
       })
       .then((data) => {
-        if (!active || !data?.email) return;
+        if (!active) return;
+        if (typeof data?.id !== 'string' || !/^[a-f0-9]{24}$/i.test(data.id) || typeof data.email !== 'string') {
+          throw new Error('Identidade da sessão inválida');
+        }
         setCurrentUser((prev) => ({
-          id: String(data.id || ''),
+          id: data.id,
           name: data.name,
           email: data.email,
           avatar: data.avatar || '',
           provider: data.provider || prev?.provider || 'email',
           certificateCode: data.certificateCode || '',
-          joinedAt: prev?.joinedAt || new Date().toLocaleDateString('pt-BR')
+          joinedAt: prev?.joinedAt || (data.createdAt ? new Date(data.createdAt).toLocaleDateString('pt-BR') : '')
         }));
         if (Array.isArray(data.completedIds)) {
           setCompletedChallenges(data.completedIds);
@@ -2328,16 +2286,20 @@ export default function App() {
             verificationCode: data.certificateCode
           }));
         }
+        setSessionIdentityResolved(true);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!active) return;
+        if (error?.name === 'AbortError') return;
         setCurrentUser(null);
         setSessionAccessToken(null);
         setAuthToken('');
+        setSessionIdentityError(true);
+        setSessionIdentityResolved(true);
       });
 
     return () => { active = false; };
-  }, [authToken]);
+  }, [authToken, sessionBootstrapComplete]);
 
   useEffect(() => {
     if (!authModalOpen || !googleClientId) return;
