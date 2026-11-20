@@ -2337,6 +2337,7 @@ export default function App() {
     : 'nexusdev_guest';
 
   const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('nexusdev_guest');
+  const [storageLoadError, setStorageLoadError] = useState(false);
   const storageIdentityReady = isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -2380,7 +2381,11 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (!userStoragePrefix) return;
+    if (!userStoragePrefix) {
+      setStorageLoadError(true);
+      return;
+    }
+    setStorageLoadError(false);
     try {
       // Legacy email-keyed data is intentionally left untouched: an email alone
       // cannot safely prove ownership when migrating local data to an account ID.
@@ -2406,8 +2411,12 @@ export default function App() {
         setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });
       }
       setLoadedStoragePrefix(userStoragePrefix);
+      setStorageLoadError(false);
     } catch {
-      setLoadedStoragePrefix(userStoragePrefix);
+      setCompletedChallenges([]);
+      setCommunityXP(0);
+      setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });
+      setStorageLoadError(true);
     }
   }, [userStoragePrefix, currentUser?.id, currentUser?.email, todayStr]);
 
@@ -2432,6 +2441,7 @@ export default function App() {
     } catch {}
   }, [streakData, userStoragePrefix, loadedStoragePrefix]);
 
+  const [capstoneStorageReady, setCapstoneStorageReady] = useState(false);
   const [capstoneChecks, setCapstoneChecks] = useState(() => {
     try {
       const saved = localStorage.getItem(`${userStoragePrefix}_cap_checks`);
@@ -2456,7 +2466,11 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (!userStoragePrefix) return;
+    if (!userStoragePrefix) {
+      setCapstoneStorageReady(false);
+      return;
+    }
+    setCapstoneStorageReady(false);
     try {
       const savedChecks = localStorage.getItem(`${userStoragePrefix}_cap_checks`);
       setCapstoneChecks(savedChecks ? JSON.parse(savedChecks) : {});
@@ -2473,18 +2487,29 @@ export default function App() {
           verificationCode: ''
         });
       }
-    } catch {}
+      setCapstoneStorageReady(true);
+    } catch {
+      setCapstoneChecks({});
+      setCapstoneSubmission({
+        studentName: currentUser?.name || '',
+        githubUrl: '',
+        liveUrl: '',
+        submitted: false,
+        verificationCode: ''
+      });
+      setCapstoneStorageReady(false);
+    }
   }, [userStoragePrefix, currentUser]);
 
   useEffect(() => {
-    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
+    if (!capstoneStorageReady || !userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_cap_checks`, JSON.stringify(capstoneChecks));
     } catch {}
   }, [capstoneChecks, userStoragePrefix, loadedStoragePrefix]);
 
   useEffect(() => {
-    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
+    if (!capstoneStorageReady || !userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_cap_sub`, JSON.stringify(capstoneSubmission));
     } catch {}
@@ -3846,6 +3871,11 @@ export default function App() {
           />
         )}
       </div>
+      ) : storageLoadError ? (
+        <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
+          <p>Não foi possível ler os dados locais deste perfil com segurança.</p>
+          <p className="text-slate-400">A área pessoal foi bloqueada para evitar misturar informações entre contas. Seus dados locais não foram apagados.</p>
+        </main>
       ) : (
         <main role="status" aria-live="polite" className="flex-1 max-w-7xl w-full mx-auto p-8 flex items-center justify-center text-sm text-slate-400">
           Preparando os dados deste perfil com segurança…
