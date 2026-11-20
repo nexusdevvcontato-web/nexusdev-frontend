@@ -2385,9 +2385,7 @@ export default function App() {
                     joinedAt: new Date().toLocaleDateString('pt-BR')
                   });
                   if (Array.isArray(apiData.user.completedIds)) {
-                    setCompletedChallenges((prev) =>
-                      Array.from(new Set([...prev, ...apiData.user.completedIds]))
-                    );
+                    setCompletedChallenges(apiData.user.completedIds);
                   }
                   setAuthModalOpen(false);
                   setAuthError('');
