@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiFetch, API_BASE_URL } from './api/client.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, clearLocalCsrfCookie } from './auth/session-client.js';
+import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import {
   Code2,
   Terminal,
@@ -4208,7 +4209,17 @@ function ChallengeWorkspace({
 }) {
   const fileNames = useMemo(() => Object.keys(challenge.files || {}), [challenge]);
   const [activeFileName, setActiveFileName] = useState(fileNames[0] || 'index.html');
-  const [filesMap, setFilesMap] = useState(challenge.files || {});
+  const {
+    filesMap, setFilesMap, reset: resetDraft,
+    status: draftSyncStatus, conflict: draftConflict,
+    useCloudVersion, keepLocalVersion, retry: retryDraftLoad, retrySave: retryDraftSave,
+    isLoading: draftIsLoading
+  } = useLessonDraftSync({
+    challengeId: challenge.id,
+    initialFiles: challenge.files || {},
+    storagePrefix: userStoragePrefix,
+    userId: currentUser?.id || null
+  });
   const [testResults, setTestResults] = useState([]);
   const [allPassed, setAllPassed] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -4229,19 +4240,6 @@ function ChallengeWorkspace({
     const initialFiles = challenge.files || {};
     const names = Object.keys(initialFiles);
     setActiveFileName(names[0] || 'index.html');
-
-    try {
-      const savedDraft = userStoragePrefix
-        ? JSON.parse(localStorage.getItem(`${userStoragePrefix}_draft_${challenge.id}`) || 'null')
-        : null;
-      if (savedDraft && typeof savedDraft === 'object') {
-        setFilesMap({ ...initialFiles, ...savedDraft });
-      } else {
-        setFilesMap(initialFiles);
-      }
-    } catch {
-      setFilesMap(initialFiles);
-    }
 
     setTestResults([]);
     setAllPassed(false);
@@ -4293,11 +4291,10 @@ function ChallengeWorkspace({
   };
 
   const handleResetCode = () => {
-    setFilesMap(challenge.files || {});
+    resetDraft(challenge.files || {});
     setTestResults([]);
     setAllPassed(false);
     try {
-      if (userStoragePrefix) localStorage.removeItem(`${userStoragePrefix}_draft_${challenge.id}`);
     } catch {}
   };
 
