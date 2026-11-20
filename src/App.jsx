@@ -2271,6 +2271,8 @@ export default function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [passwordResetToken, setPasswordResetToken] = useState('');
+  const [passwordResetMessage, setPasswordResetMessage] = useState('');
 
   const [cloudStatus, setCloudStatus] = useState('checking');
   const [syncQueue, setSyncQueue] = useState(() => {
@@ -2634,6 +2636,59 @@ export default function App() {
       localStorage.setItem(`${userStoragePrefix}_cap_sub`, JSON.stringify(capstoneSubmission));
     } catch {}
   }, [capstoneSubmission, userStoragePrefix]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('passwordResetToken');
+    if (token) {
+      setPasswordResetToken(token);
+      setAuthMode('reset');
+      setAuthModalOpen(true);
+      setPasswordResetMessage('');
+      params.delete('passwordResetToken');
+      const query = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+    }
+  }, []);
+
+  const handlePasswordResetRequest = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setPasswordResetMessage('');
+    const email = authForm.email.trim().toLowerCase();
+    if (!email) { setAuthError('Informe seu e-mail.'); return; }
+    setAuthLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/password-reset/request`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Não foi possível solicitar a recuperação.');
+      setPasswordResetMessage(data.message || 'Se o endereço estiver cadastrado, você receberá instruções para redefinir a senha.');
+    } catch (error) { setAuthError(error.message || 'Não foi possível solicitar a recuperação.'); }
+    finally { setAuthLoading(false); }
+  };
+
+  const handlePasswordResetConfirm = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    if (authForm.password.length < 8 || authForm.password.length > 128) { setAuthError('A nova senha deve ter entre 8 e 128 caracteres.'); return; }
+    setAuthLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/password-reset/confirm`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+        body: JSON.stringify({ token: passwordResetToken, newPassword: authForm.password })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Não foi possível redefinir a senha.');
+      setPasswordResetMessage(data.message || 'Senha alterada. Entre novamente.');
+      setAuthForm({ name: '', email: authForm.email, password: '' });
+      setPasswordResetToken('');
+      setAuthMode('login');
+    } catch (error) { setAuthError(error.message || 'Não foi possível redefinir a senha.'); }
+    finally { setAuthLoading(false); }
+  };
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -3034,7 +3089,7 @@ export default function App() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">
-                  {authMode === 'login' ? 'Entrar no NexusDev' : 'Criar Conta na Nuvem'}
+                  {authMode === 'login' ? 'Entrar no NexusDev' : authMode === 'register' ? 'Criar Conta na Nuvem' : authMode === 'forgot' ? 'Recuperar senha' : 'Criar nova senha'}
                 </h2>
                 <p className="text-xs text-slate-400">
                   Sincronize seu XP, ofensiva diária, ranking e certificados
@@ -3042,7 +3097,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="space-y-2.5 mb-4">
+            {['login', 'register'].includes(authMode) && <div className="space-y-2.5 mb-4">
               {googleClientId ? (
                 <div className="space-y-2">
                   <div
@@ -3199,9 +3254,9 @@ export default function App() {
                 </span>
                 <div className="flex-grow border-t border-slate-800"></div>
               </div>
-            </div>
+            </div>}
 
-            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-5">
+            {['login', 'register'].includes(authMode) && <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-5">
               <button
                 type="button"
                 onClick={() => {
@@ -3230,9 +3285,9 @@ export default function App() {
               >
                 Cadastrar agora
               </button>
-            </div>
+            </div>}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
+            <form onSubmit={authMode === 'forgot' ? handlePasswordResetRequest : authMode === 'reset' ? handlePasswordResetConfirm : handleAuthSubmit} className="space-y-4">
               {authMode === 'register' && (
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -3251,7 +3306,7 @@ export default function App() {
                 </div>
               )}
 
-              <div>
+              {authMode !== 'reset' && <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">E-mail</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
@@ -3263,10 +3318,10 @@ export default function App() {
                     className="w-full pl-9 pr-3.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
-              </div>
+              </div>}
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Senha</label>
+              {['login', 'register', 'reset'].includes(authMode) && <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">{authMode === 'reset' ? 'Nova senha' : 'Senha'}</label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                   <input
@@ -3277,7 +3332,11 @@ export default function App() {
                     className="w-full pl-9 pr-3.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
-              </div>
+              </div>}
+
+              {authMode === 'login' && <div className="flex justify-end -mt-2"><button type="button" onClick={() => { setAuthMode('forgot'); setAuthError(''); setPasswordResetMessage(''); }} className="text-xs text-emerald-400 hover:underline">Esqueci minha senha</button></div>}
+              {['forgot', 'reset'].includes(authMode) && <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setPasswordResetMessage(''); }} className="text-xs text-slate-400 hover:text-white">Voltar para entrar</button>}
+              {passwordResetMessage && <div className="p-3 rounded-lg bg-emerald-950/50 border border-emerald-800/60 text-xs text-emerald-300">{passwordResetMessage}</div>}
 
               {authError && (
                 <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-800/60 text-xs text-rose-300 flex items-center gap-2">
@@ -3291,11 +3350,7 @@ export default function App() {
                 disabled={authLoading}
                 className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold text-sm rounded-lg transition-colors"
               >
-                {authLoading
-                  ? 'Conectando...'
-                  : authMode === 'login'
-                  ? 'Entrar na Plataforma'
-                  : 'Concluir Cadastro'}
+                {authLoading ? 'Aguarde...' : authMode === 'login' ? 'Entrar na Plataforma' : authMode === 'register' ? 'Concluir Cadastro' : authMode === 'forgot' ? 'Enviar instruções' : 'Salvar nova senha'}
               </button>
             </form>
           </div>
