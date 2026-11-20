@@ -59,8 +59,8 @@ import {
   Activity
 } from 'lucide-react';
 
-// URL da API Back-end em Produção (Render)
-const API_BASE_URL = 'https://nexusdev-1rq3.onrender.com';
+// Configure VITE_API_BASE_URL por ambiente. Vazio usa a mesma origem.
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\\/+$/, '');
 
 // ============================================================================
 // REALÇADOR DE SINTAXE SEGURO PARA O EDITOR MULTI-ARQUIVOS
@@ -2412,29 +2412,7 @@ export default function App() {
                 }
               } catch {}
 
-              try {
-                const base64Url = response.credential.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(
-                  window
-                    .atob(base64)
-                    .split('')
-                    .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                    .join('')
-                );
-                const payload = JSON.parse(jsonPayload);
-                setCurrentUser({
-                  name: payload.name || payload.email.split('@')[0],
-                  email: payload.email,
-                  avatar: payload.picture || '',
-                  provider: 'google',
-                  joinedAt: new Date().toLocaleDateString('pt-BR')
-                });
-                setAuthModalOpen(false);
-                setAuthError('');
-              } catch {
-                setAuthError('Não foi possível decodificar as credenciais do Google.');
-              }
+              setAuthError('Não foi possível validar sua conta Google com a API. Tente novamente quando o serviço estiver disponível.');
             }
           });
           googleBtnContainerRef.current.innerHTML = '';
@@ -2610,8 +2588,12 @@ export default function App() {
     setAuthError('');
 
     const emailNormalized = authForm.email.trim().toLowerCase();
-    if (!emailNormalized || !authForm.password.trim()) {
+    if (!emailNormalized || !authForm.password) {
       setAuthError('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    if (authMode === 'register' && authForm.name.trim().length < 2) {
+      setAuthError('Informe seu nome completo para criar sua conta.');
       return;
     }
 
@@ -2622,87 +2604,35 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: authForm.name.trim(),
+          ...(authMode === 'register' ? { name: authForm.name.trim() } : {}),
           email: emailNormalized,
           password: authForm.password
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.token && data.user) {
-        localStorage.setItem('nexusdev_token', data.token);
-        setAuthToken(data.token);
-        setCurrentUser({
-          name: data.user.name,
-          email: data.user.email,
-          provider: 'email',
-          certificateCode: data.user.certificateCode || '',
-          joinedAt: new Date().toLocaleDateString('pt-BR')
-        });
-        if (Array.isArray(data.user.completedIds)) {
-          setCompletedChallenges((prev) => Array.from(new Set([...prev, ...data.user.completedIds])));
-        }
-        setAuthModalOpen(false);
-        setAuthForm({ name: '', email: '', password: '' });
-        setAuthLoading(false);
-        return;
-      } else if (data && data.error) {
-        setAuthError(data.error);
-        setAuthLoading(false);
+      if (!res.ok || !data.token || !data.user) {
+        setAuthError(data.error || 'Não foi possível autenticar. Verifique a conexão com a API.');
         return;
       }
-    } catch {}
 
-    try {
-      const usersDbRaw = localStorage.getItem('nexusdev_users_db');
-      const usersDb = usersDbRaw ? JSON.parse(usersDbRaw) : {};
-
-      if (authMode === 'register') {
-        if (!authForm.name.trim()) {
-          setAuthError('Informe seu nome completo para criar sua conta.');
-          setAuthLoading(false);
-          return;
-        }
-        if (authForm.password.length < 4) {
-          setAuthError('A senha deve ter pelo menos 4 caracteres.');
-          setAuthLoading(false);
-          return;
-        }
-        if (usersDb[emailNormalized]) {
-          setAuthError('Este e-mail já está cadastrado. Faça login.');
-          setAuthLoading(false);
-          return;
-        }
-
-        const newUser = {
-          name: authForm.name.trim(),
-          email: emailNormalized,
-          password: authForm.password,
-          joinedAt: new Date().toLocaleDateString('pt-BR')
-        };
-
-        usersDb[emailNormalized] = newUser;
-        localStorage.setItem('nexusdev_users_db', JSON.stringify(usersDb));
-        setCurrentUser({ name: newUser.name, email: newUser.email, joinedAt: newUser.joinedAt });
-        setAuthModalOpen(false);
-        setAuthForm({ name: '', email: '', password: '' });
-      } else {
-        const existing = usersDb[emailNormalized];
-        if (!existing || existing.password !== authForm.password) {
-          setAuthError('E-mail ou senha incorretos.');
-          setAuthLoading(false);
-          return;
-        }
-        setCurrentUser({
-          name: existing.name,
-          email: existing.email,
-          joinedAt: existing.joinedAt || 'Hoje'
-        });
-        setAuthModalOpen(false);
-        setAuthForm({ name: '', email: '', password: '' });
+      localStorage.setItem('nexusdev_token', data.token);
+      setAuthToken(data.token);
+      setCurrentUser({
+        name: data.user.name,
+        email: data.user.email,
+        avatar: data.user.avatar || '',
+        provider: 'email',
+        certificateCode: data.user.certificateCode || '',
+        joinedAt: new Date().toLocaleDateString('pt-BR')
+      });
+      if (Array.isArray(data.user.completedIds)) {
+        setCompletedChallenges(data.user.completedIds);
       }
+      setAuthModalOpen(false);
+      setAuthForm({ name: '', email: '', password: '' });
     } catch {
-      setAuthError('Erro ao acessar o armazenamento local do navegador.');
+      setAuthError('API indisponível. Sua conta não foi criada nem autenticada localmente.');
     } finally {
       setAuthLoading(false);
     }
@@ -2710,23 +2640,8 @@ export default function App() {
 
   const handleCustomGoogleAccountSubmit = (e) => {
     e.preventDefault();
-    setAuthError('');
-    const cleanEmail = googleCustomForm.email.trim().toLowerCase();
-    const cleanName = googleCustomForm.name.trim() || cleanEmail.split('@')[0];
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setAuthError('Informe o seu e-mail Google válido.');
-      return;
-    }
-    setCurrentUser({
-      name: cleanName,
-      email: cleanEmail,
-      avatar: '',
-      provider: 'google',
-      joinedAt: new Date().toLocaleDateString('pt-BR')
-    });
+    setAuthError('Entre usando o botão oficial do Google. Informar nome e e-mail manualmente não comprova identidade.');
     setGoogleCustomLoginOpen(false);
-    setGoogleCustomForm({ name: '', email: '' });
-    setAuthModalOpen(false);
   };
 
   const handleSaveGoogleClientId = (e) => {
@@ -4289,9 +4204,6 @@ function ChallengeWorkspace({
       localStorage.setItem(`nexusdev_comments_${challenge.id}`, JSON.stringify(extraOnly));
     } catch {}
 
-    if (typeof onAddCommunityXP === 'function') {
-      onAddCommunityXP(10);
-    }
   };
 
   const lessonDoneNow = isCompleted || allPassed;
