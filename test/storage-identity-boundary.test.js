@@ -12,15 +12,18 @@ test('storage identity boundary only opens for the exact loaded namespace', () =
   assert.equal(isStorageIdentityReady('', ''), false);
 });
 
-test('account-sensitive application tree is conditionally withheld during namespace transitions', async () => {
+test('account-sensitive application tree fails closed on identity or storage errors', async () => {
   const source = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
-  assert.match(source, /const storageIdentityReady = !storageLoadError && isStorageIdentityReady\(userStoragePrefix, loadedStoragePrefix\)/);
-  assert.match(source, /\{storageIdentityReady \? \(/);
-  assert.match(source, /Preparando os dados deste perfil com segurança/);
-  assert.match(source, /if \(!userStoragePrefix \|\| loadedStoragePrefix !== userStoragePrefix\) return;/);
-  assert.match(source, /setCompletedChallenges\(\[\]\);[\\s\\S]*setCommunityXP\(0\);[\\s\\S]*setStreakData\(\{ count: 1/);
-  assert.match(source, /setStorageLoadError\(true\);/);
-  assert.doesNotMatch(source, /catch \{\s*setLoadedStoragePrefix\(userStoragePrefix\);/);
-  assert.match(source, /setCapstoneStorageReady\(false\);[\\s\\S]*setCapstoneChecks\(\{\}\);/);
-  assert.match(source, /if \(!capstoneStorageReady \|\| !userStoragePrefix \|\| loadedStoragePrefix !== userStoragePrefix\) return;/);
+  assert.ok(source.includes('const storageIdentityReady = !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix)'));
+  assert.ok(source.includes('{storageIdentityReady ? ('));
+  assert.ok(source.includes('Preparando os dados deste perfil com segurança'));
+  assert.ok(source.includes('Não foi possível ler os dados locais deste perfil com segurança.'));
+  assert.ok(source.includes('setCompletedChallenges([]);'));
+  assert.ok(source.includes('setCommunityXP(0);'));
+  assert.ok(source.includes('setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });'));
+  assert.ok(source.includes('setStorageLoadError(true);'));
+  assert.ok(!source.includes('catch {\n      setLoadedStoragePrefix(userStoragePrefix);'));
+  assert.ok(source.includes('setCapstoneStorageReady(false);'));
+  assert.ok(source.includes('setCapstoneChecks({});'));
+  assert.ok(source.includes('if (!capstoneStorageReady || !userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;'));
 });
