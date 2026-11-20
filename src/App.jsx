@@ -1078,8 +1078,7 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
           { id: 't3', description: 'Rejeita senha curta ou maior que 128 caracteres', testFn: (fn, assert) => { assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: '1234567' }), false); assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: 'x'.repeat(129) }), false); } },
           { id: 't4', description: 'Rejeita dados ausentes ou tipos incorretos', testFn: (fn, assert) => { assert.strictEqual(fn(null), false); assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: 12345678 }), false); } }
         ]
-      }
-
+      },
       {
         id: 'mod-5-aula-5',
         title: 'Definindo uma Política de Senhas',
