@@ -2180,8 +2180,6 @@ export default function App() {
   // Legacy offline actions are intentionally not replayed. Completion requires a
   // server-issued proof, and certificate issuance must remain an explicit action.
   // Old localStorage queue entries are left untouched for now, but are never sent.
-  const [syncQueue] = useState([]);
-  const [loadedQueueOwner] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
