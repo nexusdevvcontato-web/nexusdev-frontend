@@ -1,3 +1,4 @@
+import { resolveAuthenticatedApiUrl } from './request-url-policy.js';
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 const REFRESH_LOCK_NAME = 'nexusdev-session-refresh';
 let accessToken = null;
@@ -73,10 +74,14 @@ export function refreshSession() {
 }
 
 export async function authenticatedFetch(url, options = {}) {
+  const safeUrl = resolveAuthenticatedApiUrl(url, {
+    apiBaseUrl: API_BASE_URL,
+    origin: typeof window !== 'undefined' ? window.location.origin : ''
+  });
   const send = (token) => {
     const headers = new Headers(options.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    return fetch(url, {
+    return fetch(safeUrl, {
       ...options,
       headers,
       credentials: 'include',
