@@ -2177,52 +2177,34 @@ export default function App() {
   const [passwordResetMessage, setPasswordResetMessage] = useState('');
 
   const [cloudStatus, setCloudStatus] = useState('checking');
-  const queueOwnerId = typeof currentUser?.id === 'string' && /^[a-f0-9]{24}$/i.test(currentUser.id)
-    ? currentUser.id
-    : null;
-  const [syncQueue, setSyncQueue] = useState([]);
-  const [loadedQueueOwner, setLoadedQueueOwner] = useState(null);
+  // Legacy offline actions are intentionally not replayed. Completion requires a
+  // server-issued proof, and certificate issuance must remain an explicit action.
+  // Old localStorage queue entries are left untouched for now, but are never sent.
+  const [syncQueue] = useState([]);
+  const [loadedQueueOwner] = useState(null);
 
   useEffect(() => {
-    if (!queueOwnerId) {
-      setSyncQueue([]);
-      setLoadedQueueOwner(null);
-      return;
-    }
-
-    try {
-      const saved = localStorage.getItem(`nexusdev_sync_queue_${queueOwnerId}`);
-      const parsed = saved ? JSON.parse(saved) : [];
-      const safeQueue = Array.isArray(parsed)
-        ? parsed.filter((item) =>
-            item && typeof item === 'object' &&
-            (item.type === 'complete' || item.type === 'certificate') &&
-            typeof item.id === 'string'
-          ).slice(0, 25)
-        : [];
-      setSyncQueue(safeQueue);
-    } catch {
-      setSyncQueue([]);
-    }
-    setLoadedQueueOwner(queueOwnerId);
-  }, [queueOwnerId]);
-
-  useEffect(() => {
-    if (!queueOwnerId || loadedQueueOwner !== queueOwnerId) return;
-    try {
-      localStorage.setItem(`nexusdev_sync_queue_${queueOwnerId}`, JSON.stringify(syncQueue.slice(0, 25)));
-    } catch {}
-  }, [queueOwnerId, loadedQueueOwner, syncQueue]);
-
-  const enqueueSyncItem = (item) => {
-    if (!queueOwnerId || loadedQueueOwner !== queueOwnerId || !item || !['complete', 'certificate'].includes(item.type)) return;
-    setSyncQueue((prev) => {
-      if (prev.length >= 25) return prev;
-      const id = `${item.type}_${item.challengeId || 'cert'}_${Date.now()}`;
-      return [...prev, { ...item, id }].slice(0, 25);
-    });
-    setCloudStatus('queued');
-  };
+    let cancelled = false;
+    const controller = new AbortController();
+    const checkApi = async () => {
+      try {
+        const response = await apiFetch('/api/health', { signal: controller.signal });
+        if (!response.ok) throw new Error('API indisponível');
+        if (!cancelled) setCloudStatus('online');
+      } catch {
+        if (!cancelled) setCloudStatus('offline');
+      }
+    };
+    checkApi();
+    const interval = setInterval(checkApi, 30000);
+    window.addEventListener('online', checkApi);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(interval);
+      window.removeEventListener('online', checkApi);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
