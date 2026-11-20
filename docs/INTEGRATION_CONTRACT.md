@@ -24,6 +24,7 @@ Branch: `rebuild/v2-security`
 | Tutor | `POST /api/tutor/analyze`, lesson/code context | `{tips:[...]}` |
 | Read comments | `GET /api/lessons/:lessonId/comments` | `{comments:[...]}` |
 | Create comment | Authenticated `POST /api/lessons/:lessonId/comments`, `{text}` | `{comment,xp}`; comments do not award XP |
+| Privacy export | Authenticated `GET /api/privacy/export`, Bearer token | JSON `schemaVersion: 2`, own profile data and comments linked by `authorUserId` |
 
 ## Changes made in this audit
 
@@ -50,3 +51,11 @@ Branch: `rebuild/v2-security`
 3. Set frontend `VITE_API_BASE_URL` to the staging API URL and rebuild.
 4. Verify register/login/`/api/me`, Google verification, comments, tutor, leaderboard, and certificate error paths against staging.
 5. Do not enable official lesson XP until the isolated runner, proof signer, public key, and adversarial integration tests are operational.
+
+## Central de privacidade no frontend
+
+- O perfil do aluno oferece acesso à tela “Privacidade e dados”.
+- A tela descreve categorias de dados armazenados, campos que podem aparecer publicamente e limitações conhecidas.
+- O botão de exportação chama `GET /api/privacy/export` com o token da sessão e baixa a resposta JSON; falhas de rede/autorização são exibidas sem simular sucesso.
+- A interface informa que comentários antigos sem vínculo, logs de infraestrutura e dados de provedores externos não estão incluídos e que exclusão/anonimização ainda não estão disponíveis.
+- Nenhuma exclusão de conta, alteração de perfil ou mudança de visibilidade pública é executada nesta tela.
