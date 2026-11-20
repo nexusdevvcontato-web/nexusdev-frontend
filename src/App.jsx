@@ -2476,22 +2476,8 @@ export default function App() {
   useEffect(() => {
     if (!userStoragePrefix) return;
     try {
-      if (currentUser?.email && currentUser?.id) {
-        const legacyPrefix = `nexusdev_user_${currentUser.email}`;
-        const legacyKeys = Object.keys(localStorage).filter((key) =>
-          key.startsWith(`${legacyPrefix}_`) &&
-          (['_completed', '_comm_xp', '_streak', '_cap_checks', '_cap_sub'].some((suffix) => key === `${legacyPrefix}${suffix}`) ||
-            key.startsWith(`${legacyPrefix}_draft_`))
-        );
-        for (const legacyKey of legacyKeys) {
-          const targetKey = `${userStoragePrefix}${legacyKey.slice(legacyPrefix.length)}`;
-          const legacyValue = localStorage.getItem(legacyKey);
-          if (legacyValue !== null && localStorage.getItem(targetKey) === null) {
-            localStorage.setItem(targetKey, legacyValue);
-          }
-          localStorage.removeItem(legacyKey);
-        }
-      }
+      // Legacy email-keyed data is intentionally left untouched: an email alone
+      // cannot safely prove ownership when migrating local data to an account ID.
       const savedCompleted = localStorage.getItem(`${userStoragePrefix}_completed`);
       setCompletedChallenges(savedCompleted ? JSON.parse(savedCompleted) : []);
 
