@@ -3,6 +3,7 @@ import { apiFetch, API_BASE_URL } from './api/client.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, getSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, finalizeSessionLogout } from './auth/session-client.js';
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
+import { validateStoredProgress } from './storage/progress-storage-policy.js';
 import {
   Code2,
   Terminal,
@@ -2429,25 +2430,27 @@ export default function App() {
       // Legacy email-keyed data is intentionally left untouched: an email alone
       // cannot safely prove ownership when migrating local data to an account ID.
       const savedCompleted = localStorage.getItem(`${userStoragePrefix}_completed`);
-      setCompletedChallenges(savedCompleted ? JSON.parse(savedCompleted) : []);
-
       const savedCommXP = localStorage.getItem(`${userStoragePrefix}_comm_xp`);
-      setCommunityXP(savedCommXP ? Number(savedCommXP) : 0);
-
       const savedStreak = localStorage.getItem(`${userStoragePrefix}_streak`);
-      if (savedStreak) {
-        const parsed = JSON.parse(savedStreak);
-        if (parsed.lastActiveDate !== todayStr) {
-          setStreakData({
-            count: parsed.count || 1,
-            todayCompleted: 0,
-            lastActiveDate: todayStr
-          });
-        } else {
-          setStreakData(parsed);
+      const storedProgress = validateStoredProgress({
+        completed: savedCompleted ? JSON.parse(savedCompleted) : [],
+        communityXp: savedCommXP ? Number(savedCommXP) : 0,
+        streak: savedStreak ? JSON.parse(savedStreak) : {
+          count: 1,
+          todayCompleted: 0,
+          lastActiveDate: todayStr
         }
+      });
+      setCompletedChallenges(storedProgress.completed);
+      setCommunityXP(storedProgress.communityXp);
+      if (storedProgress.streak.lastActiveDate !== todayStr) {
+        setStreakData({
+          count: storedProgress.streak.count,
+          todayCompleted: 0,
+          lastActiveDate: todayStr
+        });
       } else {
-        setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });
+        setStreakData(storedProgress.streak);
       }
       setLoadedStoragePrefix(userStoragePrefix);
       setStorageLoadError(false);
