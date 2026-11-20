@@ -24,5 +24,6 @@ jobs:
         run: |
           npm audit --json > /tmp/npm-audit.json || true
           node -e "const audit = require('/tmp/npm-audit.json'); console.log(JSON.stringify(audit.vulnerabilities || {}, null, 2))"
+      - run: npm audit --audit-level=low
       - run: npm test
       - run: npm run build
