@@ -3877,6 +3877,7 @@ export default function App() {
           <PrivacyCenterView
             authToken={authToken}
             currentUser={currentUser}
+            googleClientId={googleClientId}
             onBack={() => setActiveView('profile')}
           />
         )}
@@ -3888,7 +3889,7 @@ export default function App() {
 // ============================================================================
 // CENTRAL DE PRIVACIDADE: TRANSPARÊNCIA E EXPORTAÇÃO DOS DADOS DA CONTA
 // ============================================================================
-function PrivacyCenterView({ authToken, currentUser, onBack }) {
+function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -3898,6 +3899,13 @@ function PrivacyCenterView({ authToken, currentUser, onBack }) {
   });
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [savingPreference, setSavingPreference] = useState('');
+  const [reauthPassword, setReauthPassword] = useState('');
+  const [reauthLoading, setReauthLoading] = useState(false);
+  const [reauthError, setReauthError] = useState('');
+  const [reauthSuccess, setReauthSuccess] = useState('');
+  const [reauthProof, setReauthProof] = useState(null);
+  const reauthGoogleButtonRef = useRef(null);
+  const isGoogleAccount = currentUser?.provider === 'google';
 
   useEffect(() => {
     let active = true;
@@ -3922,6 +3930,111 @@ function PrivacyCenterView({ authToken, currentUser, onBack }) {
       .finally(() => { if (active) setPreferencesLoading(false); });
     return () => { active = false; };
   }, [authToken]);
+
+  useEffect(() => {
+    if (!isGoogleAccount || !googleClientId || !reauthGoogleButtonRef.current) return undefined;
+    let active = true;
+    const initializeGoogleReauth = () => {
+      if (!active || !window.google?.accounts?.id || !reauthGoogleButtonRef.current) return;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response) => {
+            if (!active || !response?.credential) return;
+            setReauthLoading(true);
+            setReauthError('');
+            setReauthSuccess('');
+            setReauthProof(null);
+            try {
+              const apiResponse = await fetch(`${API_BASE_URL}/api/auth/reauthenticate`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json'
+                },
+                body: JSON.stringify({ credential: response.credential }),
+                cache: 'no-store'
+              });
+              const payload = await apiResponse.json().catch(() => ({}));
+              if (!apiResponse.ok || !payload.reauthToken) {
+                throw new Error(payload.error || 'Não foi possível confirmar sua identidade Google.');
+              }
+              if (active) {
+                setReauthProof({ token: payload.reauthToken, expiresAt: Date.now() + payload.expiresIn * 1000 });
+                setReauthSuccess('Identidade Google confirmada. A prova temporária está pronta apenas nesta sessão.');
+              }
+            } catch (err) {
+              if (active) setReauthError(err.message || 'Falha na reautenticação Google.');
+            } finally {
+              if (active) setReauthLoading(false);
+            }
+          }
+        });
+        reauthGoogleButtonRef.current.innerHTML = '';
+        window.google.accounts.id.renderButton(reauthGoogleButtonRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: 320,
+          text: 'continue_with',
+          locale: 'pt-BR'
+        });
+      } catch {
+        if (active) setReauthError('Não foi possível inicializar a verificação Google.');
+      }
+    };
+    if (window.google?.accounts?.id) {
+      initializeGoogleReauth();
+    } else {
+      const script = document.getElementById('google-gsi-script');
+      if (script) {
+        script.addEventListener('load', initializeGoogleReauth, { once: true });
+      } else {
+        const newScript = document.createElement('script');
+        newScript.id = 'google-gsi-script';
+        newScript.src = 'https://accounts.google.com/gsi/client';
+        newScript.async = true;
+        newScript.defer = true;
+        newScript.onload = initializeGoogleReauth;
+        document.head.appendChild(newScript);
+      }
+    }
+    return () => {
+      active = false;
+    };
+  }, [authToken, googleClientId, isGoogleAccount]);
+
+  const submitPasswordReauthentication = async (event) => {
+    event.preventDefault();
+    if (!authToken || !reauthPassword || reauthLoading) return;
+    setReauthLoading(true);
+    setReauthError('');
+    setReauthSuccess('');
+    setReauthProof(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/reauthenticate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ password: reauthPassword }),
+        cache: 'no-store'
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.reauthToken) {
+        throw new Error(payload.error || 'Não foi possível confirmar sua senha.');
+      }
+      setReauthProof({ token: payload.reauthToken, expiresAt: Date.now() + payload.expiresIn * 1000 });
+      setReauthPassword('');
+      setReauthSuccess('Senha confirmada. A prova temporária está pronta apenas nesta sessão.');
+    } catch (err) {
+      setReauthError(err.message || 'Falha na reautenticação.');
+    } finally {
+      setReauthLoading(false);
+    }
+  };
 
   const updatePreference = async (key, value) => {
     if (!authToken || savingPreference) return;
@@ -4050,6 +4163,48 @@ function PrivacyCenterView({ authToken, currentUser, onBack }) {
           </label>
           {preferencesLoading && <p className="text-xs text-slate-400">Carregando preferências...</p>}
           {!!savingPreference && <p role="status" className="text-xs text-slate-400">Salvando alteração...</p>}
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 className="text-base font-bold text-white">Confirmar identidade novamente</h2>
+            <p className="text-sm text-slate-400 mt-1">Esta confirmação prepara uma prova de uso único, válida por cinco minutos. Ela ainda não executa exclusão de conta nem outra ação sensível.</p>
+          </div>
+          {isGoogleAccount ? (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-300">Esta conta usa Google. Confirme com a mesma conta Google vinculada ao seu perfil.</p>
+              {googleClientId ? (
+                <div ref={reauthGoogleButtonRef} aria-label="Confirmar identidade com Google" />
+              ) : (
+                <p className="text-xs text-amber-300">Configure o Client ID do Google no aplicativo para habilitar esta confirmação.</p>
+              )}
+            </div>
+          ) : (
+            <form onSubmit={submitPasswordReauthentication} className="space-y-3">
+              <label className="block text-sm text-slate-300" htmlFor="reauth-password">Senha atual</label>
+              <input
+                id="reauth-password"
+                type="password"
+                autoComplete="current-password"
+                value={reauthPassword}
+                onChange={(event) => setReauthPassword(event.target.value)}
+                minLength={1}
+                maxLength={128}
+                required
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                placeholder="Digite sua senha atual"
+              />
+              <button type="submit" disabled={!reauthPassword || reauthLoading} className="px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-sm font-bold text-white">
+                {reauthLoading ? 'Verificando...' : 'Confirmar senha'}
+              </button>
+            </form>
+          )}
+          {reauthLoading && <p role="status" className="text-xs text-slate-400">Confirmando identidade...</p>}
+          {reauthError && <p role="alert" className="text-sm text-rose-300">{reauthError}</p>}
+          {reauthSuccess && <p role="status" className="text-sm text-emerald-300">{reauthSuccess}</p>}
+          {reauthProof && (
+            <p className="text-xs text-slate-400">Prova temporária mantida somente na memória desta tela e descartada ao sair. Validade: cinco minutos.</p>
+          )}
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
