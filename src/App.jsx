@@ -630,6 +630,68 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
           }
         ]
       }
+    ],
+    additionalChallenges: [
+      {
+        id: 'mod-2-aula-4',
+        title: 'Calculando Média com Array Vazio',
+        language: 'javascript',
+        targetFunction: 'calcularMediaSegura',
+        defaultTraceArgs: [[8, 10]],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '5 min',
+        theory: `Uma média aritmética é a soma dos valores dividida pela quantidade de itens. Antes de dividir, trate o array vazio para evitar \`NaN\`.`,
+        instructions: `Implemente calcularMediaSegura(notas): retorne a média aritmética das notas. Se o array estiver vazio, retorne 0. Considere que a entrada será um array de números.`,
+        hint: 'Verifique notas.length === 0 antes de dividir. Depois some os valores e divida pela quantidade.',
+        files: { 'script.js': `function calcularMediaSegura(notas) {\n  // Retorne 0 se não houver notas; caso contrário, retorne a média\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Calcula a média de [8, 10]', testFn: (fn, assert) => assert.strictEqual(fn([8, 10]), 9) },
+          { id: 't2', description: 'Retorna 0 para um array vazio', testFn: (fn, assert) => assert.strictEqual(fn([]), 0) },
+          { id: 't3', description: 'Calcula a média de um único elemento', testFn: (fn, assert) => assert.strictEqual(fn([7]), 7) }
+        ]
+      },
+      {
+        id: 'mod-2-aula-5',
+        title: 'Normalizando um Endereço de E-mail',
+        language: 'javascript',
+        targetFunction: 'normalizarEmail',
+        defaultTraceArgs: ['  Dev@Exemplo.COM  '],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '4 min',
+        theory: `Strings oferecem métodos úteis para padronizar dados. \`trim()\` remove espaços das extremidades e \`toLowerCase()\` converte letras para minúsculas.`,
+        instructions: `Implemente normalizarEmail(email) para remover espaços no início/fim e converter todo o endereço para letras minúsculas. Não remova espaços internos.`,
+        hint: 'Encadeie email.trim() com toLowerCase().',
+        files: { 'script.js': `function normalizarEmail(email) {\n  // Remova espaços das extremidades e converta para minúsculas\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Remove espaços externos e converte para minúsculas', testFn: (fn, assert) => assert.strictEqual(fn('  Dev@Exemplo.COM  '), 'dev@exemplo.com') },
+          { id: 't2', description: 'Mantém o conteúdo interno', testFn: (fn, assert) => assert.strictEqual(fn('A B@EXEMPLO.COM'), 'a b@exemplo.com') },
+          { id: 't3', description: 'Aceita texto sem espaços externos', testFn: (fn, assert) => assert.strictEqual(fn('ana@site.com'), 'ana@site.com') }
+        ]
+      },
+      {
+        id: 'mod-2-aula-6',
+        title: 'Contando Palavras em uma Frase',
+        language: 'javascript',
+        targetFunction: 'contarPalavras',
+        defaultTraceArgs: ['Aprender JavaScript é prático'],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '5 min',
+        theory: `O método \`.trim()\` remove espaços das extremidades. \`.split(/\\s+/)\` divide uma frase em partes usando um ou mais espaços em branco.`,
+        instructions: `Implemente contarPalavras(texto) para retornar a quantidade de palavras separadas por espaços em branco. Espaços repetidos não devem criar palavras extras. Uma string vazia ou só com espaços deve retornar 0.`,
+        hint: 'Trate texto.trim() vazio antes de dividir; depois conte os itens produzidos por split.',
+        files: { 'script.js': `function contarPalavras(texto) {\n  // Conte palavras ignorando espaços repetidos\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Conta palavras separadas por espaços simples', testFn: (fn, assert) => assert.strictEqual(fn('Aprender JavaScript é prático'), 4) },
+          { id: 't2', description: 'Ignora espaços repetidos', testFn: (fn, assert) => assert.strictEqual(fn('  um   dois\t três  '), 3) },
+          { id: 't3', description: 'Retorna 0 para texto vazio ou só com espaços', testFn: (fn, assert) => { assert.strictEqual(fn(''), 0); assert.strictEqual(fn('   '), 0); } }
+        ]
+      }
     ]
   },
   {
@@ -1716,10 +1778,17 @@ function buildFull140PerModuleCurriculum(baseModules) {
       idx++;
     }
 
+    const additionalChallenges = mod.additionalChallenges || [];
+    const additionalIds = new Set(additionalChallenges.map((challenge) => challenge.id));
+    const finalChallenges = [
+      ...list.filter((challenge) => !additionalIds.has(challenge.id)),
+      ...additionalChallenges
+    ];
+
     return {
       ...mod,
-      totalSyllabusLessons: list.length,
-      challenges: list
+      totalSyllabusLessons: finalChallenges.length,
+      challenges: finalChallenges
     };
   });
 }
