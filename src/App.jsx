@@ -1018,22 +1018,83 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
     ],
     additionalChallenges: [
       {
+        id: 'mod-5-aula-2',
+        title: 'Modelando um Documento para MongoDB',
+        language: 'javascript',
+        targetFunction: 'criarDocumentoProduto',
+        defaultTraceArgs: [{ titulo: '  Teclado Mecânico  ', preco: 249.9, categoria: 'Periféricos', admin: true }],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '7 min',
+        theory: `MongoDB armazena registros como documentos BSON. Antes de persistir dados, a aplicação deve construir um documento com campos conhecidos, normalizar valores e descartar propriedades inesperadas enviadas pelo cliente.`,
+        instructions: `Implemente criarDocumentoProduto(dados). Retorne somente { titulo, preco, categoria, ativo }. titulo deve ser dados.titulo.trim(); preco deve ser copiado; categoria deve ser dados.categoria.trim() ou 'geral' quando ausente/vazia; ativo deve iniciar como true. Não copie campos extras como admin ou _id.`,
+        hint: "Monte um novo objeto usando apenas os quatro campos permitidos. Use trim() para titulo e categoria.",
+        files: { 'documento.js': `function criarDocumentoProduto(dados) {\n  // Crie um documento novo com somente os campos permitidos\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Normaliza título e mantém apenas campos permitidos', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: '  Teclado  ', preco: 249.9, categoria: ' Periféricos ', admin: true, _id: 'forjado' }), { titulo: 'Teclado', preco: 249.9, categoria: 'Periféricos', ativo: true }) },
+          { id: 't2', description: 'Usa categoria padrão quando ausente', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: 'Mouse', preco: 50 }), { titulo: 'Mouse', preco: 50, categoria: 'geral', ativo: true }) },
+          { id: 't3', description: 'Não altera o objeto recebido', testFn: (fn, assert) => { const entrada = { titulo: '  Monitor ', preco: 900 }; fn(entrada); assert.deepEqual(entrada, { titulo: '  Monitor ', preco: 900 }); } }
+        ]
+      },
+      {
+        id: 'mod-5-aula-3',
+        title: 'Criando uma Atualização Segura com $set',
+        language: 'javascript',
+        targetFunction: 'criarAtualizacaoProduto',
+        defaultTraceArgs: [{ titulo: 'Mouse', preco: 79, ativo: false, admin: true }],
+        difficulty: 'Intermediário',
+        xp: 50,
+        estimatedTime: '8 min',
+        theory: `Em atualizações MongoDB, o operador \`$set\` altera somente os campos informados. Nunca repasse diretamente todo o body do cliente para uma atualização: selecione explicitamente os campos que a API permite modificar.`,
+        instructions: `Implemente criarAtualizacaoProduto(dados). Retorne { $set: campos }. Copie apenas titulo (string não vazia após trim), preco (número finito maior que zero) e ativo (boolean). Ignore propriedades desconhecidas e não inclua campos inválidos. Se nenhum campo permitido for válido, retorne { $set: {} }.`,
+        hint: 'Crie um objeto vazio, valide cada campo separadamente e retorne { $set: atualizacao }.',
+        files: { 'atualizacao.js': `function criarAtualizacaoProduto(dados) {\n  // Construa $set usando somente campos permitidos e válidos\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Permite atualizar somente campos válidos', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: '  Mouse Gamer ', preco: 120, ativo: false, admin: true }), { $set: { titulo: 'Mouse Gamer', preco: 120, ativo: false } }) },
+          { id: 't2', description: 'Ignora valores inválidos e campos desconhecidos', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: ' ', preco: -1, ativo: 'sim', role: 'admin' }), { $set: {} }) },
+          { id: 't3', description: 'Aceita atualização parcial', testFn: (fn, assert) => assert.deepEqual(fn({ ativo: true }), { $set: { ativo: true } }) },
+          { id: 't4', description: 'Não altera os dados de entrada', testFn: (fn, assert) => { const entrada = { titulo: 'Novo', admin: false }; fn(entrada); assert.deepEqual(entrada, { titulo: 'Novo', admin: false }); } }
+        ]
+      },
+      {
+        id: 'mod-5-aula-4',
+        title: 'Validando Dados de Cadastro com Segurança',
+        language: 'javascript',
+        targetFunction: 'validarCadastroUsuario',
+        defaultTraceArgs: [{ nome: 'Ana Silva', email: 'ana@exemplo.com', senha: 'senha-forte-123' }],
+        difficulty: 'Intermediário',
+        xp: 50,
+        estimatedTime: '8 min',
+        theory: `Valide os dados no servidor antes de criar uma conta. Uma senha forte deve ter tamanho mínimo adequado; o e-mail deve ter formato plausível e o nome não pode estar vazio. A senha nunca deve ser armazenada em texto puro: a aplicação real deve gerar hash com bcrypt antes de persistir.`,
+        instructions: `Implemente validarCadastroUsuario(dados). Retorne true somente se nome for uma string não vazia após trim(), email for uma string com formato local@dominio.extensão e senha for uma string entre 8 e 128 caracteres. Não transforme a senha nem a persista nesta função.`,
+        hint: 'Valide tipos e comprimentos antes de usar uma expressão regular simples para o e-mail.',
+        files: { 'cadastro.js': `function validarCadastroUsuario(dados) {\n  // Valide nome, email e senha no servidor\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Aceita cadastro com campos válidos', testFn: (fn, assert) => assert.strictEqual(fn({ nome: 'Ana Silva', email: 'ana@exemplo.com', senha: 'senha-forte-123' }), true) },
+          { id: 't2', description: 'Rejeita nome vazio e e-mail inválido', testFn: (fn, assert) => { assert.strictEqual(fn({ nome: ' ', email: 'ana@exemplo.com', senha: '12345678' }), false); assert.strictEqual(fn({ nome: 'Ana', email: 'email-invalido', senha: '12345678' }), false); } },
+          { id: 't3', description: 'Rejeita senha curta ou maior que 128 caracteres', testFn: (fn, assert) => { assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: '1234567' }), false); assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: 'x'.repeat(129) }), false); } },
+          { id: 't4', description: 'Rejeita dados ausentes ou tipos incorretos', testFn: (fn, assert) => { assert.strictEqual(fn(null), false); assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: 12345678 }), false); } }
+        ]
+      }
+
+      {
         id: 'mod-5-aula-5',
         title: 'Definindo uma Política de Senhas',
         language: 'javascript',
         targetFunction: 'validarPoliticaSenha',
-        difficulty: 'Iniciante',
-        xp: 50,
-        estimatedTime: '6 min',
-        theory: `A política de senha é validada no servidor. Use limites claros de tamanho e nunca armazene senha em texto puro. Para autenticação real, gere hashes com bcrypt e compare com bcrypt.compare; não crie algoritmos criptográficos próprios.`,
-        instructions: `Implemente validarPoliticaSenha(senha). Retorne true somente quando senha for string com 8 a 128 caracteres, contendo ao menos uma letra maiúscula, uma minúscula e um número. Retorne false para outros tipos ou valores fora dos limites.`,
-        hint: 'Valide o tipo e o tamanho primeiro; depois use testes separados para maiúscula, minúscula e número.',
+        difficulty: 'Iniciante', xp: 50, estimatedTime: '6 min',
+        theory: `Valide senhas no servidor e nunca armazene texto puro. Para autenticação real, gere hashes com bcrypt e compare com bcrypt.compare; não crie algoritmos criptográficos próprios.`,
+        instructions: `Implemente validarPoliticaSenha(senha). Retorne true somente para string de 8 a 128 caracteres com ao menos uma letra maiúscula, uma minúscula e um número.`,
+        hint: 'Valide tipo e tamanho primeiro; depois verifique maiúscula, minúscula e número.',
         files: { 'senha.js': `function validarPoliticaSenha(senha) {\n  // Valide tamanho e variedade de caracteres\n  \n}` },
         communityPosts: [],
         tests: [
-          { id: 't1', description: 'Aceita senha com tamanho e variedade válidos', testFn: (fn, assert) => assert.strictEqual(fn('NexusDev2026'), true) },
-          { id: 't2', description: 'Rejeita senha sem maiúscula, minúscula ou número', testFn: (fn, assert) => { assert.strictEqual(fn('nexusdev2026'), false); assert.strictEqual(fn('NEXUSDEV2026'), false); assert.strictEqual(fn('NexusDevSenha'), false); } },
-          { id: 't3', description: 'Rejeita tamanho fora do intervalo e tipo incorreto', testFn: (fn, assert) => { assert.strictEqual(fn('Ab1'), false); assert.strictEqual(fn('A'.repeat(129) + 'b1'), false); assert.strictEqual(fn(12345678), false); } }
+          { id: 't1', description: 'Aceita senha forte', testFn: (fn, assert) => assert.strictEqual(fn('NexusDev2026'), true) },
+          { id: 't2', description: 'Rejeita ausência de maiúscula, minúscula ou número', testFn: (fn, assert) => { assert.strictEqual(fn('nexusdev2026'), false); assert.strictEqual(fn('NEXUSDEV2026'), false); assert.strictEqual(fn('NexusDevSenha'), false); } },
+          { id: 't3', description: 'Rejeita limites e tipos incorretos', testFn: (fn, assert) => { assert.strictEqual(fn('Ab1'), false); assert.strictEqual(fn('A'.repeat(129) + 'b1'), false); assert.strictEqual(fn(12345678), false); } }
         ]
       },
       {
@@ -1041,18 +1102,16 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
         title: 'Extraindo o Token Bearer com Segurança',
         language: 'javascript',
         targetFunction: 'extrairTokenBearer',
-        difficulty: 'Intermediário',
-        xp: 50,
-        estimatedTime: '7 min',
-        theory: `APIs costumam receber JWT no cabeçalho Authorization como Bearer. Faça parsing estrito do cabeçalho e rejeite valores ausentes, esquemas diferentes ou tokens com espaços extras. Extrair um token não significa validá-lo: use jwt.verify no servidor com segredo e algoritmo configurados.`,
-        instructions: `Implemente extrairTokenBearer(cabecalho). Aceite somente uma string no formato "Bearer TOKEN", sem espaços adicionais e sem espaços dentro do token. Retorne TOKEN ou null se o cabeçalho não obedecer ao formato. A comparação do esquema deve ignorar maiúsculas/minúsculas.`,
-        hint: 'Use uma expressão regular ancorada no início e no fim da string.',
-        files: { 'token.js': `function extrairTokenBearer(cabecalho) {\n  // Retorne somente o token Bearer bem formado ou null\n  \n}` },
+        difficulty: 'Intermediário', xp: 50, estimatedTime: '7 min',
+        theory: `JWTs são enviados em Authorization: Bearer. Faça parsing estrito do cabeçalho. Extrair não valida o token: use jwt.verify no servidor com segredo e algoritmo configurados.`,
+        instructions: `Implemente extrairTokenBearer(cabecalho). Aceite somente "Bearer TOKEN", sem espaços adicionais ou dentro do token. Retorne TOKEN ou null. O esquema não diferencia maiúsculas/minúsculas.`,
+        hint: 'Use uma expressão regular ancorada no início e no fim.',
+        files: { 'token.js': `function extrairTokenBearer(cabecalho) {\n  // Retorne token Bearer bem formado ou null\n  \n}` },
         communityPosts: [],
         tests: [
-          { id: 't1', description: 'Extrai token de cabeçalho Bearer válido', testFn: (fn, assert) => { assert.strictEqual(fn('Bearer abc.def.ghi'), 'abc.def.ghi'); assert.strictEqual(fn('bearer token123'), 'token123'); } },
-          { id: 't2', description: 'Rejeita esquema incorreto, espaços extras e token vazio', testFn: (fn, assert) => { assert.strictEqual(fn('Basic abc'), null); assert.strictEqual(fn('Bearer '), null); assert.strictEqual(fn('Bearer abc extra'), null); assert.strictEqual(fn(' Bearer abc'), null); } },
-          { id: 't3', description: 'Rejeita tipos diferentes de string', testFn: (fn, assert) => { assert.strictEqual(fn(null), null); assert.strictEqual(fn({ authorization: 'Bearer abc' }), null); } }
+          { id: 't1', description: 'Extrai Bearer válido', testFn: (fn, assert) => { assert.strictEqual(fn('Bearer abc.def.ghi'), 'abc.def.ghi'); assert.strictEqual(fn('bearer token123'), 'token123'); } },
+          { id: 't2', description: 'Rejeita esquema ou formato inválido', testFn: (fn, assert) => { assert.strictEqual(fn('Basic abc'), null); assert.strictEqual(fn('Bearer '), null); assert.strictEqual(fn('Bearer abc extra'), null); assert.strictEqual(fn(' Bearer abc'), null); } },
+          { id: 't3', description: 'Rejeita tipos não string', testFn: (fn, assert) => { assert.strictEqual(fn(null), null); assert.strictEqual(fn({ authorization: 'Bearer abc' }), null); } }
         ]
       },
       {
@@ -1060,13 +1119,11 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
         title: 'Aplicando Controle de Acesso por Perfil (RBAC)',
         language: 'javascript',
         targetFunction: 'podeAcessarPerfil',
-        difficulty: 'Intermediário',
-        xp: 50,
-        estimatedTime: '7 min',
-        theory: `RBAC (Role-Based Access Control) concede permissões conforme o perfil atribuído pelo servidor. Nunca confie em role enviado pelo navegador; use a identidade obtida após validar o JWT e consulte o perfil persistido no banco.`,
-        instructions: `Implemente podeAcessarPerfil(usuario, perfilNecessario). Retorne true somente se usuario for um objeto, usuario.role for string e for exatamente igual a perfilNecessario (que também deve ser string não vazia). Retorne false para perfis ausentes ou divergentes.`,
-        hint: 'Valide os dois argumentos antes de comparar usuario.role === perfilNecessario.',
-        files: { 'rbac.js': `function podeAcessarPerfil(usuario, perfilNecessario) {\n  // Compare o perfil confiável do usuário com o exigido\n  \n}` },
+        difficulty: 'Intermediário', xp: 50, estimatedTime: '7 min',
+        theory: `RBAC concede permissões conforme o perfil atribuído pelo servidor. Nunca confie em role enviado pelo navegador; use a identidade obtida após validar o JWT e consulte o perfil persistido.`,
+        instructions: `Implemente podeAcessarPerfil(usuario, perfilNecessario). Retorne true somente se usuario for objeto, usuario.role e perfilNecessario forem strings não vazias e iguais. Caso contrário, false.`,
+        hint: 'Valide os argumentos antes de comparar usuario.role === perfilNecessario.',
+        files: { 'rbac.js': `function podeAcessarPerfil(usuario, perfilNecessario) {\n  // Compare o perfil confiável com o exigido\n  \n}` },
         communityPosts: [],
         tests: [
           { id: 't1', description: 'Permite perfil correspondente', testFn: (fn, assert) => { assert.strictEqual(fn({ role: 'admin' }, 'admin'), true); assert.strictEqual(fn({ role: 'student' }, 'student'), true); } },
@@ -1074,7 +1131,23 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
           { id: 't3', description: 'Rejeita perfil exigido inválido', testFn: (fn, assert) => { assert.strictEqual(fn({ role: 'admin' }, ''), false); assert.strictEqual(fn({ role: 'admin' }, null), false); } }
         ]
       }
-    ],    challenges: []
+    ]
+  },
+  {
+    id: 'mod-6',
+    number: 6,
+    title: 'Projeto Final Integrador Full-Stack',
+    subtitle: 'FullStack Store & Painel Administrativo Completo',
+    icon: 'Award',
+    description:
+      'A prova final da sua jornada! Projete, desenvolva e publique um Marketplace completo integrando React, Node.js, Express, Banco de Dados e Autenticação JWT.',
+    isCapstoneModule: true,
+    tracks: [
+      { name: 'Arquitetura & Modelagem do Banco de Dados', count: 3 },
+      { name: 'Desenvolvimento da API RESTful & Segurança JWT', count: 4 },
+      { name: 'Interface React, Deploy em Nuvem & Certificação Verificável', count: 3 }
+    ],
+    challenges: []
   }
 ];
 
