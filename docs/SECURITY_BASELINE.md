@@ -25,3 +25,14 @@ the legacy application is already compliant.
 4. Verify keyboard accessibility and responsive behavior.
 5. Compare behavior with the current production application.
 6. Do not route production traffic to the rebuild until explicit approval.
+
+## Frontend audit — current findings
+
+- The profile snapshot is no longer persisted in `localStorage`. The UI now restores identity from the server-backed session and reloads the profile through `/api/me`; this avoids displaying stale personal data from a previous browser session.
+- Local lesson drafts, local progress, capstone form state and community-comment cache still use browser storage. Their retention, account-switch isolation and migration behavior need a separate compatibility review before changing storage keys.
+- The current local-storage namespace includes the account email in its key. A future migration should use a stable opaque account identifier and preserve existing local drafts without exposing email in storage keys.
+- The editor uses `dangerouslySetInnerHTML` only for syntax highlighting. Its current helper escapes HTML metacharacters before adding fixed markup; this path should receive dedicated regression tests for hostile learner input.
+- API calls are spread across the main component and use both the session-aware helper and direct `fetch`. A shared API client with consistent response validation, error handling and cache policy remains a recommended refactor.
+- `index.html` still loads Tailwind from the unpinned CDN. Removing that runtime dependency requires bundling the utility CSS locally and verifying the full visual build; it remains a production-hardening item, not silently removed in this security-only pass.
+- The frontend CI currently verifies the Vite production build. Dedicated component/integration tests for session restoration, account switching, browser-storage isolation and hostile editor content remain to be added.
+- No production deployment was performed. The Vercel Preview remains the only frontend deployment target for this branch.
