@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE_URL } from '../api/client.js';
 import { authenticatedFetch } from '../auth/session-client.js';
-import { isValidDraftFiles, validateRemoteDraft } from './draft-payload-policy.js';
+import { isValidDraftFiles, validateRemoteDraft, validateSavedDraftResponse } from './draft-payload-policy.js';
 
 function readLocalDraft(storageKey, initialFiles) {
   try {
@@ -165,11 +165,10 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
           setDirty(false);
           return;
         }
-        if (!response.ok || !payload?.saved || !Number.isSafeInteger(payload?.draft?.revision)) {
-          throw new Error('draft_save_failed');
-        }
+        if (!response.ok) throw new Error('draft_save_failed');
+        const savedRevision = validateSavedDraftResponse(payload, revision);
         lastCloudContentRef.current = snapshotJson;
-        setRevision(payload.draft.revision);
+        setRevision(savedRevision);
         if (JSON.stringify(filesRef.current) === snapshotJson) {
           setDirty(false);
           setStatus('saved');
