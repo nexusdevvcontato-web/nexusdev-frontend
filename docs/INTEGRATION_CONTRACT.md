@@ -26,6 +26,7 @@ Branch: `rebuild/v2-security`
 | Create comment | Authenticated `POST /api/lessons/:lessonId/comments`, `{text}` | `{comment,xp}`; comments do not award XP |
 | Privacy export | Authenticated `GET /api/privacy/export`, Bearer token | JSON `schemaVersion: 2`, own profile data and comments linked by `authorUserId` |
 | Privacy preferences | Authenticated `GET/PUT /api/privacy/preferences`, Bearer token | `{preferences:{showInLeaderboard,showCertificateDetails}}`; PUT accepts only boolean fields |
+| Reauthentication | Authenticated `POST /api/auth/reauthenticate`, `{password}` for password accounts or `{credential}` for Google accounts | `{reauthToken,expiresIn}`; token is short-lived, user-bound and single-use; requires dedicated `REAUTH_TOKEN_SECRET` |
 | Public certificate visibility | `GET /api/certificates/:code` | If details are hidden, `{valid:true,code,publicDetails:false}` without personal details |
 
 ## Changes made in this audit
@@ -70,3 +71,12 @@ Branch: `rebuild/v2-security`
 - A tela informa que a opção de ranking controla somente a lista pública da API. O perfil local da própria sessão pode continuar visível ao titular.
 - Contas legadas mantêm temporariamente os valores compatíveis com a divulgação anterior até que a pessoa altere as opções.
 - O ranking não usa mais nomes fictícios de fallback quando a API retorna uma lista vazia.
+
+
+### Reautenticação recente na Central de Privacidade
+
+- A interface escolhe o método de confirmação com base no provedor da sessão: senha para contas locais ou botão oficial do Google Identity Services para contas Google.
+- A credencial é enviada diretamente à API de staging com a sessão autenticada; a interface não decodifica tokens Google nem considera nome/e-mail digitados como prova de identidade.
+- A prova retornada fica apenas em memória React enquanto a tela está montada; não é persistida em localStorage, sessionStorage ou URL. Ao sair da tela, é descartada.
+- A confirmação apenas prepara a prova de uso único de cinco minutos. Não há botão nem endpoint de exclusão de conta conectado à interface.
+- Para testes, configure o Client ID Google no frontend e o mesmo audience no backend de staging, além de `REAUTH_TOKEN_SECRET` distinto da chave de sessão. Não configure a URL de produção.
