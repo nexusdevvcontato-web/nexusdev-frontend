@@ -4140,8 +4140,8 @@ function ChallengeWorkspace({
   const handleAddComment = async (e) => {
     e.preventDefault();
     setCommentError('');
-    if (!currentUser) {
-      setCommentError('Faça login ou cadastre-se para publicar na comunidade.');
+    if (!authToken) {
+      setCommentError('Entre na sua conta para publicar na comunidade.');
       return;
     }
     const clean = commentText.trim();
@@ -4150,42 +4150,33 @@ function ChallengeWorkspace({
       return;
     }
 
-    let createdPost = {
-      id: `post-${Date.now()}`,
-      author: currentUser.name,
-      badge: 'Aluno NexusDev',
-      time: 'agora',
-      text: clean
-    };
-
-    if (authToken) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`
-          },
-          body: JSON.stringify({ text: clean })
-        });
-        const data = await res.json();
-        if (res.ok && data?.comment) {
-          createdPost = data.comment;
-        }
-      } catch {}
-    }
-
-    const nextList = [createdPost, ...comments];
-    setComments(nextList);
-    setCommentText('');
-
-    const extraOnly = nextList.filter(
-      (item) => !(challenge.communityPosts || []).some((base) => base.id === item.id)
-    );
     try {
-      localStorage.setItem(`nexusdev_comments_${challenge.id}`, JSON.stringify(extraOnly));
-    } catch {}
+      const res = await fetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ text: clean })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.comment) {
+        setCommentError(data.error || 'Não foi possível publicar o comentário.');
+        return;
+      }
 
+      const nextList = [data.comment, ...comments];
+      setComments(nextList);
+      setCommentText('');
+      const extraOnly = nextList.filter(
+        (item) => !(challenge.communityPosts || []).some((base) => base.id === item.id)
+      );
+      try {
+        localStorage.setItem(`nexusdev_comments_${challenge.id}`, JSON.stringify(extraOnly));
+      } catch {}
+    } catch {
+      setCommentError('API indisponível. O comentário não foi publicado.');
+    }
   };
 
   const lessonDoneNow = isCompleted || allPassed;
