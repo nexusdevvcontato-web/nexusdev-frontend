@@ -2338,7 +2338,7 @@ export default function App() {
 
   const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('nexusdev_guest');
   const [storageLoadError, setStorageLoadError] = useState(false);
-  const storageIdentityReady = isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
+  const storageIdentityReady = !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('Todas');

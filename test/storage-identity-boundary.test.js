@@ -14,13 +14,13 @@ test('storage identity boundary only opens for the exact loaded namespace', () =
 
 test('account-sensitive application tree is conditionally withheld during namespace transitions', async () => {
   const source = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
-  assert.match(source, /const storageIdentityReady = isStorageIdentityReady\(userStoragePrefix, loadedStoragePrefix\)/);
+  assert.match(source, /const storageIdentityReady = !storageLoadError && isStorageIdentityReady\(userStoragePrefix, loadedStoragePrefix\)/);
   assert.match(source, /\{storageIdentityReady \? \(/);
   assert.match(source, /Preparando os dados deste perfil com segurança/);
   assert.match(source, /if \(!userStoragePrefix \|\| loadedStoragePrefix !== userStoragePrefix\) return;/);
   assert.match(source, /setCompletedChallenges\(\[\]\);[\\s\\S]*setCommunityXP\(0\);[\\s\\S]*setStreakData\(\{ count: 1/);
   assert.match(source, /setStorageLoadError\(true\);/);
-  assert.doesNotMatch(source, /catch \{\\s*setLoadedStoragePrefix\(userStoragePrefix\);/);
+  assert.doesNotMatch(source, /catch \{\s*setLoadedStoragePrefix\(userStoragePrefix\);/);
   assert.match(source, /setCapstoneStorageReady\(false\);[\\s\\S]*setCapstoneChecks\(\{\}\);/);
   assert.match(source, /if \(!capstoneStorageReady \|\| !userStoragePrefix \|\| loadedStoragePrefix !== userStoragePrefix\) return;/);
 });
