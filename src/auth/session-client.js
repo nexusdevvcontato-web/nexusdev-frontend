@@ -96,10 +96,16 @@ export async function authenticatedFetch(url, options = {}) {
   return response;
 }
 
+export function clearLocalCsrfCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = '__Host-nexusdev_csrf=; Max-Age=0; Path=/; Secure; SameSite=Lax';
+}
+
 export async function logoutSession(token) {
+  let serverRevoked = false;
   try {
     const csrfToken = readCsrfCookie();
-    await fetch(`${API_BASE_URL}/api/auth/session/logout`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/session/logout`, {
       method: 'POST',
       credentials: 'include',
       cache: 'no-store',
@@ -108,9 +114,14 @@ export async function logoutSession(token) {
         'X-CSRF-Token': csrfToken
       }
     });
+    serverRevoked = response.status === 204;
+  } catch {
+    serverRevoked = false;
   } finally {
+    if (!serverRevoked) clearLocalCsrfCookie();
     setSessionAccessToken(null);
     try { channel?.postMessage({ type: 'logout' }); } catch {}
     notify({ type: 'logout' });
   }
+  return serverRevoked;
 }
