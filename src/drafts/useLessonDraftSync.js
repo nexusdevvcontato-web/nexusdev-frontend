@@ -1,23 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE_URL } from '../api/client.js';
 import { authenticatedFetch } from '../auth/session-client.js';
-
-function isFileMap(value) {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value) &&
-    Object.keys(value).length > 0 &&
-    Object.entries(value).every(([name, content]) =>
-      /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(name) && !name.includes('..') &&
-      typeof content === 'string' && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(content) &&
-      new TextEncoder().encode(content).byteLength <= 50 * 1024
-    )) && Object.values(value).reduce((sum, content) => sum + new TextEncoder().encode(content).byteLength, 0) <= 40 * 1024;
-}
+import { isValidDraftFiles, validateRemoteDraft } from './draft-payload-policy.js';
 
 function readLocalDraft(storageKey, initialFiles) {
   try {
     const raw = storageKey ? localStorage.getItem(storageKey) : null;
     if (!raw) return { files: initialFiles, exists: false };
     const parsed = JSON.parse(raw);
-    return isFileMap(parsed) ? { files: { ...initialFiles, ...parsed }, exists: true } :
+    return isValidDraftFiles(parsed) ? { files: { ...initialFiles, ...parsed }, exists: true } :
       { files: initialFiles, exists: false };
   } catch {
     return { files: initialFiles, exists: false };
@@ -91,20 +82,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
     }).then(async (response) => {
       if (!response.ok) throw new Error('draft_load_failed');
       const payload = await response.json();
-      const remote = payload?.draft;
-      if (!remote || !Number.isSafeInteger(remote.revision) || remote.revision < 0 ||
-          !remote.files || typeof remote.files !== 'object' || Array.isArray(remote.files)) {
-        throw new Error('draft_response_invalid');
-      }
-      // A persisted revision must always carry a valid, non-empty file map.
-      // Treat malformed cloud content as unavailable instead of attempting a
-      // revision-zero save that could create misleading conflict state.
-      if (remote.revision > 0 && !isFileMap(remote.files)) {
-        throw new Error('draft_response_invalid');
-      }
-      if (remote.revision === 0 && Object.keys(remote.files).length !== 0) {
-        throw new Error('draft_response_invalid');
-      }
+      const remote = validateRemoteDraft(payload);
       if (!active) return;
 
       if (remote.revision > 0) {
@@ -214,7 +192,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   }, [challengeId, filesMap, revision, dirty, ready, loadedKey, identityKey, userId, conflict, retrySaveCount]);
 
   const useCloudVersion = useCallback(() => {
-    if (!conflict?.remoteDraft || !isFileMap(conflict.remoteDraft.files)) return;
+    if (!conflict?.remoteDraft || !isValidDraftFiles(conflict.remoteDraft.files)) return;
     const remote = conflict.remoteDraft;
     filesRef.current = remote.files;
     setFilesMap(remote.files);
