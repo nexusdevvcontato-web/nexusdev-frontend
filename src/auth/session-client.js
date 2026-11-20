@@ -8,6 +8,13 @@ let logoutInProgress = false;
 const listeners = new Set();
 let channel = null;
 
+function sessionApiUrl(path) {
+  return resolveAuthenticatedApiUrl(path, {
+    apiBaseUrl: API_BASE_URL,
+    origin: typeof window !== 'undefined' ? window.location.origin : ''
+  });
+}
+
 function notify(event) {
   for (const listener of listeners) {
     try { listener(event); } catch {}
@@ -50,7 +57,7 @@ async function performRefresh() {
   if (logoutInProgress) return null;
   const refreshEpoch = sessionEpoch;
   const csrfToken = getSessionCsrfToken();
-  const response = await fetch(`${API_BASE_URL}/api/auth/session/refresh`, {
+  const response = await fetch(sessionApiUrl('/api/auth/session/refresh'), {
     method: 'POST',
     credentials: 'include',
     cache: 'no-store',
@@ -118,7 +125,7 @@ export async function logoutSession(token) {
   let serverRevoked = false;
   try {
     const csrfToken = getSessionCsrfToken();
-    const response = await fetch(`${API_BASE_URL}/api/auth/session/logout`, {
+    const response = await fetch(sessionApiUrl('/api/auth/session/logout'), {
       method: 'POST',
       credentials: 'include',
       cache: 'no-store',
