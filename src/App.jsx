@@ -2823,8 +2823,6 @@ export default function App() {
               title={
                 cloudStatus === 'online'
                   ? 'API na nuvem conectada'
-                  : cloudStatus === 'queued'
-                  ? `${syncQueue.length} item(ns) aguardando envio para a nuvem`
                   : cloudStatus === 'checking'
                   ? 'Acordando servidor na nuvem...'
                   : 'Sem conexão com a nuvem — progresso salvo localmente'
@@ -2832,8 +2830,6 @@ export default function App() {
               className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono ${
                 cloudStatus === 'online'
                   ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
-                  : cloudStatus === 'queued'
-                  ? 'bg-amber-950/30 border-amber-500/30 text-amber-300'
                   : 'bg-slate-950 border-slate-800 text-slate-400'
               }`}
             >
@@ -2841,8 +2837,6 @@ export default function App() {
               <span>
                 {cloudStatus === 'online'
                   ? 'Nuvem OK'
-                  : cloudStatus === 'queued'
-                  ? `Fila (${syncQueue.length})`
                   : cloudStatus === 'checking'
                   ? 'Nuvem...'
                   : 'Local'}
