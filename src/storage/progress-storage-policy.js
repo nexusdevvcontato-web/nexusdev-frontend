@@ -1,6 +1,10 @@
-export function validateStoredProgress({ completed, communityXp, streak }) {
+export function validateStoredProgress({ completed, communityXp, streak, allowedChallengeIds }) {
+  if (!Array.isArray(allowedChallengeIds) || allowedChallengeIds.length === 0) {
+    throw new TypeError('Catálogo de aulas inválido.');
+  }
+  const allowedIds = new Set(allowedChallengeIds);
   if (!Array.isArray(completed) || completed.length > 1000 ||
-      completed.some((id) => typeof id !== 'string' || !id.trim() || id.length > 120)) {
+      completed.some((id) => typeof id !== 'string' || !id.trim() || id.length > 120 || !allowedIds.has(id))) {
     throw new TypeError('Progresso local inválido.');
   }
   const normalizedCompleted = [...new Set(completed)];
