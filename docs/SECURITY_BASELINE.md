@@ -58,3 +58,12 @@ the legacy application is already compliant.
 - The generated Vercel Preview for the rebuild branch returned HTTP 200 for the HTML and compiled CSS assets; the CSS response contained Tailwind utilities and responsive breakpoint rules. This validates delivery of the compiled stylesheet, not a full browser visual or interaction regression.
 - A source review found conditional class names expressed as complete literal Tailwind class strings in template expressions; Tailwind's content scan can detect those literals. No dynamically assembled utility fragments requiring a safelist were identified in the reviewed frontend source.
 - Browser-level visual checks at mobile/desktop widths and interactive regression tests remain outstanding. No production deployment was made.
+
+## Student-code execution containment
+
+- Removed both in-page `new Function()` evaluators and the loop-rewriting helper. Student JavaScript must not execute in the NexusDev application origin, where it could access account-scoped browser storage or authenticated application capabilities.
+- Until the isolated runner is deployed and integrated end to end, JavaScript challenge verification fails closed: it reports that execution is unavailable, does not mark a challenge complete, and cannot grant XP. The memory inspector is disabled for the same reason.
+- HTML/CSS preview uses a sandboxed iframe and a deny-by-default Content Security Policy: scripts, network connections, forms, nested frames, objects, and external resources are blocked. Inline styles remain available for CSS lessons.
+- The hidden HTML test fixture uses an iframe sandbox that permits parent DOM inspection but does not grant script execution. The same restrictive CSP is applied to the fixture document.
+- Added Node built-in regression tests for the absence of dynamic JavaScript evaluation, the iframe/CSP restrictions, and fail-closed challenge behavior. Frontend CI runs `npm test` before `npm run build`.
+- This is a temporary safety restriction, not a completed code-execution feature. The separate runner remains undeployed and has no provisioned signing key; do not enable JavaScript verification, XP, or certificates based on client-side execution.
