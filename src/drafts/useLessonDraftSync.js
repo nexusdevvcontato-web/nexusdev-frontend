@@ -24,7 +24,7 @@ function readLocalDraft(storageKey, initialFiles) {
 }
 
 export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, userId }) {
-  const storageKey = storagePrefix ? \`\${storagePrefix}_draft_\${challengeId}\` : null;
+  const storageKey = storagePrefix ? `${storagePrefix}_draft_${challengeId}` : null;
   const initialFilesKey = JSON.stringify(initialFiles || {});
   const [filesMap, setFilesMap] = useState(initialFiles || {});
   const filesRef = useRef(filesMap);
@@ -77,7 +77,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
     let active = true;
     const controller = new AbortController();
     setStatus('loading');
-    authenticatedFetch(\`\${API_BASE_URL}/api/lessons/\${encodeURIComponent(challengeId)}/draft\`, {
+    authenticatedFetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challengeId)}/draft`, {
       method: 'GET',
       signal: controller.signal
     }).then(async (response) => {
@@ -145,7 +145,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
       saveInFlightRef.current.add(identityKey);
       if (activeIdentityRef.current === identityKey) setStatus('saving');
       try {
-        const response = await authenticatedFetch(\`\${API_BASE_URL}/api/lessons/\${encodeURIComponent(challengeId)}/draft\`, {
+        const response = await authenticatedFetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challengeId)}/draft`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ files: snapshot, expectedRevision: revision })
