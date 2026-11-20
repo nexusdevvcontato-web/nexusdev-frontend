@@ -60,7 +60,7 @@ import {
 } from 'lucide-react';
 
 // Configure VITE_API_BASE_URL por ambiente. Vazio usa a mesma origem.
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\\/+$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 // ============================================================================
 // REALÇADOR DE SINTAXE SEGURO PARA O EDITOR MULTI-ARQUIVOS
