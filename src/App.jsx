@@ -1779,11 +1779,10 @@ function buildFull140PerModuleCurriculum(baseModules) {
     }
 
     const additionalChallenges = mod.additionalChallenges || [];
-    const additionalIds = new Set(additionalChallenges.map((challenge) => challenge.id));
-    const finalChallenges = [
-      ...list.filter((challenge) => !additionalIds.has(challenge.id)),
-      ...additionalChallenges
-    ];
+    const additionalById = new Map(additionalChallenges.map((challenge) => [challenge.id, challenge]));
+    const finalChallenges = list.map((challenge) =>
+      additionalById.get(challenge.id) || challenge
+    );
 
     return {
       ...mod,
