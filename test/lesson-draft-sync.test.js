@@ -37,12 +37,12 @@ test('draft saves are aborted when the active identity changes and newer edits a
   assert.match(hook, /setRetrySaveCount/);
 });
 
-test('local drafts enforce the same per-file and aggregate byte limits as the API', () => {
-  assert.match(hook, /50 \* 1024/);
-  assert.match(hook, /40 \* 1024/);
-  assert.match(hook, /u0000-/);
+test('local drafts enforce the same per-file and aggregate byte limits as the API', async () => {
+  const policy = await readFile(new URL('../src/drafts/draft-payload-policy.js', import.meta.url), 'utf8');
+  assert.match(policy, /MAX_FILE_BYTES = 50 \\* 1024/);
+  assert.match(policy, /MAX_TOTAL_BYTES = 40 \\* 1024/);
+  assert.match(policy, /FORBIDDEN_CONTROLS/);
 });
-
 test('failed cloud reads keep the local account draft visible without auto-overwriting remote state', () => {
   assert.match(hook, /setReady\(true\);\s*setLoadedKey\(identityKey\);\s*setDirty\(false\);\s*setStatus\('offline'\)/);
   assert.match(hook, /failed read must never trigger an overwrite attempt/);
