@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { apiFetch } from './api/client.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, clearLocalCsrfCookie } from './auth/session-client.js';
 import {
   Code2,
@@ -59,9 +60,6 @@ import {
   Star,
   Activity
 } from 'lucide-react';
-
-// Configure VITE_API_BASE_URL por ambiente. Vazio usa a mesma origem.
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 // ============================================================================
 // REALÇADOR DE SINTAXE SEGURO PARA O EDITOR MULTI-ARQUIVOS
@@ -2321,7 +2319,7 @@ export default function App() {
 
     const pingAndFlush = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/health`, { cache: 'no-store', signal: controller.signal });
+        const res = await apiFetch('/api/health', { signal: controller.signal });
         if (!res.ok) throw new Error('API indisponível');
         if (cancelled) return;
 
@@ -2456,7 +2454,7 @@ export default function App() {
             client_id: googleClientId,
             callback: async (response) => {
               try {
-                const apiRes = await fetch(`${API_BASE_URL}/api/auth/session/google`, {
+                const apiRes = await apiFetch('/api/auth/session/google', {
                   method: 'POST',
                   credentials: 'include',
                   headers: { 'Content-Type': 'application/json' },
@@ -2718,7 +2716,7 @@ export default function App() {
     if (!email) { setAuthError('Informe seu e-mail.'); return; }
     setAuthLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/password-reset/request`, {
+      const response = await apiFetch('/api/auth/password-reset/request', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
         body: JSON.stringify({ email })
       });
@@ -2735,7 +2733,7 @@ export default function App() {
     if (authForm.password.length < 8 || authForm.password.length > 128) { setAuthError('A nova senha deve ter entre 8 e 128 caracteres.'); return; }
     setAuthLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/password-reset/confirm`, {
+      const response = await apiFetch('/api/auth/password-reset/confirm', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
         body: JSON.stringify({ token: passwordResetToken, newPassword: authForm.password })
       });
@@ -2766,7 +2764,7 @@ export default function App() {
     setAuthLoading(true);
     try {
       const endpoint = authMode === 'register' ? '/api/auth/session/register' : '/api/auth/session/login';
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await apiFetch(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -4474,7 +4472,7 @@ function ChallengeWorkspace({
     }
 
     let active = true;
-    fetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`)
+    apiFetch(`/api/lessons/${encodeURIComponent(challenge.id)}/comments`)
       .then((r) => r.json())
       .then((data) => {
         if (!active || !Array.isArray(data?.comments) || data.comments.length === 0) return;
@@ -4640,7 +4638,7 @@ function ChallengeWorkspace({
     const failedTests = testResults.filter((r) => !r.passed);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/tutor/analyze`, {
+      const res = await apiFetch('/api/tutor/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5194,7 +5192,7 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_BASE_URL}/api/leaderboard`)
+    apiFetch('/api/leaderboard')
       .then((r) => r.json())
       .then((data) => {
         if (!active) return;
@@ -5568,7 +5566,7 @@ function PublicCertificateVerifierView({ initialCode = '' }) {
     setResult(null);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/certificates/${encodeURIComponent(target)}`);
+      const res = await apiFetch(`/api/certificates/${encodeURIComponent(target)}`);
       const data = await res.json();
       if (res.ok && data?.valid) {
         setResult(data);
