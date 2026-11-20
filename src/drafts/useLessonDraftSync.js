@@ -7,8 +7,9 @@ function isFileMap(value) {
     Object.keys(value).length > 0 &&
     Object.entries(value).every(([name, content]) =>
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(name) && !name.includes('..') &&
-      typeof content === 'string'
-    ));
+      typeof content === 'string' && !content.includes('\u0000') &&
+      new TextEncoder().encode(content).byteLength <= 50 * 1024
+    )) && Object.values(value).reduce((sum, content) => sum + new TextEncoder().encode(content).byteLength, 0) <= 80 * 1024;
 }
 
 function readLocalDraft(storageKey, initialFiles) {
@@ -39,9 +40,16 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   const [retrySaveCount, setRetrySaveCount] = useState(0);
   const lastCloudContentRef = useRef(null);
   const saveInFlightRef = useRef(new Set());
+  const saveControllersRef = useRef(new Map());
   const activeIdentityRef = useRef(identityKey);
   activeIdentityRef.current = identityKey;
   const editGenerationRef = useRef(0);
+
+  useEffect(() => () => {
+    const controller = saveControllersRef.current.get(identityKey);
+    controller?.abort();
+    saveControllersRef.current.delete(identityKey);
+  }, [identityKey]);
 
   const setCurrentFiles = useCallback((nextFiles) => {
     editGenerationRef.current += 1;
@@ -143,12 +151,16 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
 
     const timeout = setTimeout(async () => {
       saveInFlightRef.current.add(identityKey);
+      const controller = new AbortController();
+      saveControllersRef.current.set(identityKey, controller);
+      let scheduleNewerSnapshot = false;
       if (activeIdentityRef.current === identityKey) setStatus('saving');
       try {
         const response = await authenticatedFetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challengeId)}/draft`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: snapshot, expectedRevision: revision })
+          body: JSON.stringify({ files: snapshot, expectedRevision: revision }),
+          signal: controller.signal
         });
         const payload = await response.json().catch(() => ({}));
         if (activeIdentityRef.current !== identityKey) return;
@@ -169,11 +181,16 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
         } else {
           setDirty(true);
           setStatus('local');
+          scheduleNewerSnapshot = true;
         }
       } catch {
         if (activeIdentityRef.current === identityKey) setStatus('offline');
       } finally {
         saveInFlightRef.current.delete(identityKey);
+        if (saveControllersRef.current.get(identityKey) === controller) saveControllersRef.current.delete(identityKey);
+        if (scheduleNewerSnapshot && activeIdentityRef.current === identityKey) {
+          setRetrySaveCount((value) => value + 1);
+        }
       }
     }, 1000);
 
@@ -216,16 +233,19 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
     setCurrentFiles(nextFiles || {});
   }, [setCurrentFiles]);
 
+  const identityReady = loadedKey === identityKey;
+
   return {
-    filesMap,
+    filesMap: identityReady ? filesMap : (initialFiles || {}),
     setFilesMap: setCurrentFiles,
     reset,
-    status,
-    conflict,
+    status: identityReady ? status : (userId ? 'loading' : 'local'),
+    conflict: identityReady ? conflict : null,
     useCloudVersion,
     keepLocalVersion,
     retry,
     retrySave,
-    isLoading: Boolean(userId && !ready)
+    isLoading: Boolean(userId && !identityReady),
+    isReady: identityReady
   };
 }
