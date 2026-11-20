@@ -39,8 +39,10 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   const [retrySaveCount, setRetrySaveCount] = useState(0);
   const lastCloudContentRef = useRef(null);
   const saveInFlightRef = useRef(false);
+  const editGenerationRef = useRef(0);
 
   const setCurrentFiles = useCallback((nextFiles) => {
+    editGenerationRef.current += 1;
     filesRef.current = nextFiles;
     setFilesMap(nextFiles);
     try {
@@ -52,6 +54,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   }, [storageKey]);
 
   useEffect(() => {
+    const generationAtLoad = editGenerationRef.current;
     const local = readLocalDraft(storageKey, initialFiles || {});
     filesRef.current = local.files;
     setFilesMap(local.files);
@@ -85,12 +88,15 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
       if (!active) return;
 
       if (remote.revision > 0 && isFileMap(remote.files)) {
+        const wasEditedDuringLoad = editGenerationRef.current !== generationAtLoad;
+        const localFilesNow = filesRef.current;
         const localJson = JSON.stringify(local.files);
         const remoteJson = JSON.stringify(remote.files);
         const initialJson = JSON.stringify(initialFiles || {});
-        if (local.exists && localJson !== initialJson && localJson !== remoteJson) {
+        if ((wasEditedDuringLoad && JSON.stringify(localFilesNow) !== remoteJson) ||
+            (!wasEditedDuringLoad && local.exists && localJson !== initialJson && localJson !== remoteJson)) {
           setRevision(remote.revision);
-          setConflict({ localFiles: local.files, remoteDraft: remote });
+          setConflict({ localFiles: wasEditedDuringLoad ? localFilesNow : local.files, remoteDraft: remote });
           setStatus('conflict');
         } else {
           filesRef.current = remote.files;
@@ -101,7 +107,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
           setStatus('saved');
           try { if (storageKey) localStorage.setItem(storageKey, JSON.stringify(remote.files)); } catch {}
         }
-      } else if (local.exists) {
+      } else if (local.exists || editGenerationRef.current !== generationAtLoad) {
         setRevision(0);
         setDirty(true);
         setStatus('local');
