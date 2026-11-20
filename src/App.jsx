@@ -4284,9 +4284,6 @@ function ChallengeWorkspace({
   const handleCodeChange = (newValue) => {
     const updated = { ...filesMap, [activeFileName]: newValue };
     setFilesMap(updated);
-    try {
-      if (userStoragePrefix) localStorage.setItem(`${userStoragePrefix}_draft_${challenge.id}`, JSON.stringify(updated));
-    } catch {}
   };
 
   const handleResetCode = () => {
