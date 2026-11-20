@@ -750,6 +750,69 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
           }
         ]
       }
+
+    ],
+    additionalChallenges: [
+      {
+        id: 'mod-3-aula-2',
+        title: 'Criando um Componente com Props',
+        language: 'javascript',
+        targetFunction: 'criarModeloCartaoProduto',
+        defaultTraceArgs: [{ nome: 'Teclado', preco: 199.9 }],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '6 min',
+        theory: `No React, componentes são funções que recebem \`props\` e descrevem o que deve aparecer na interface. Nesta atividade, vamos representar o resultado do componente como um objeto simples para praticar a leitura e transformação das props antes de avançar para JSX.`,
+        instructions: `Implemente criarModeloCartaoProduto(props). Ela deve retornar um objeto com as propriedades tipo: 'article', titulo: props.nome e preco: props.preco. Não altere o objeto props recebido.`,
+        hint: "Retorne um novo objeto: { tipo: 'article', titulo: props.nome, preco: props.preco }.",
+        files: { 'script.js': `function criarModeloCartaoProduto(props) {\n  // Retorne um novo objeto com tipo, titulo e preco\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Cria o modelo do cartão usando as props', testFn: (fn, assert) => assert.deepEqual(fn({ nome: 'Teclado', preco: 199.9 }), { tipo: 'article', titulo: 'Teclado', preco: 199.9 }) },
+          { id: 't2', description: 'Não altera o objeto de props', testFn: (fn, assert) => { const props = { nome: 'Mouse', preco: 59 }; fn(props); assert.deepEqual(props, { nome: 'Mouse', preco: 59 }); } },
+          { id: 't3', description: 'Preserva valores numéricos', testFn: (fn, assert) => assert.strictEqual(fn({ nome: 'Monitor', preco: 850 }).preco, 850) }
+        ]
+      },
+      {
+        id: 'mod-3-aula-3',
+        title: 'Atualizando uma Lista sem Mutação',
+        language: 'javascript',
+        targetFunction: 'atualizarPrecoProduto',
+        defaultTraceArgs: [[{ id: 1, nome: 'Teclado', preco: 100 }, { id: 2, nome: 'Mouse', preco: 50 }], 2, 65],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '7 min',
+        theory: `Ao atualizar estado no React, não devemos modificar arrays e objetos existentes. O método \`.map()\` permite criar uma nova lista, substituindo somente o item que corresponde ao identificador.`,
+        instructions: `Implemente atualizarPrecoProduto(produtos, id, novoPreco). Retorne um novo array. O produto com o id informado deve receber o novo preço; os demais devem permanecer iguais. Não modifique o array nem seus objetos originais.`,
+        hint: 'Use map para criar novos objetos. Para o item correspondente, retorne { ...produto, preco: novoPreco }; para os outros, retorne o próprio produto.',
+        files: { 'script.js': `function atualizarPrecoProduto(produtos, id, novoPreco) {\n  // Retorne uma nova lista sem alterar a original\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Atualiza somente o produto com o id informado', testFn: (fn, assert) => assert.deepEqual(fn([{ id: 1, nome: 'Teclado', preco: 100 }, { id: 2, nome: 'Mouse', preco: 50 }], 2, 65), [{ id: 1, nome: 'Teclado', preco: 100 }, { id: 2, nome: 'Mouse', preco: 65 }]) },
+          { id: 't2', description: 'Mantém a lista original intacta', testFn: (fn, assert) => { const original = [{ id: 1, nome: 'Teclado', preco: 100 }]; fn(original, 1, 120); assert.deepEqual(original, [{ id: 1, nome: 'Teclado', preco: 100 }]); } },
+          { id: 't3', description: 'Retorna uma nova referência de array', testFn: (fn, assert) => { const original = [{ id: 1, nome: 'Mouse', preco: 50 }]; assert.notStrictEqual(fn(original, 9, 60), original); } }
+        ]
+      },
+      {
+        id: 'mod-3-aula-4',
+        title: 'Filtrando Produtos com filter()',
+        language: 'javascript',
+        targetFunction: 'filtrarProdutosPorPreco',
+        defaultTraceArgs: [[{ nome: 'Mouse', preco: 50 }, { nome: 'Teclado', preco: 120 }, { nome: 'Monitor', preco: 900 }], 100],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '6 min',
+        theory: `O método \`.filter()\` cria um novo array contendo apenas os elementos que passam em uma condição. Em interfaces React, ele é muito usado para buscas e filtros de listas sem alterar os dados originais.`,
+        instructions: `Implemente filtrarProdutosPorPreco(produtos, precoMaximo). Retorne apenas os produtos cujo preço seja menor ou igual ao limite. Preserve a ordem e não altere a lista original.`,
+        hint: 'Use produtos.filter(produto => produto.preco <= precoMaximo).',
+        files: { 'script.js': `function filtrarProdutosPorPreco(produtos, precoMaximo) {\n  // Retorne apenas os produtos dentro do limite\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Mantém apenas produtos com preço até o limite', testFn: (fn, assert) => assert.deepEqual(fn([{ nome: 'Mouse', preco: 50 }, { nome: 'Teclado', preco: 120 }, { nome: 'Monitor', preco: 900 }], 100), [{ nome: 'Mouse', preco: 50 }]) },
+          { id: 't2', description: 'Retorna array vazio quando nenhum produto atende', testFn: (fn, assert) => assert.deepEqual(fn([{ nome: 'Monitor', preco: 900 }], 100), []) },
+          { id: 't3', description: 'Não altera a lista original', testFn: (fn, assert) => { const original = [{ nome: 'Mouse', preco: 50 }]; fn(original, 100); assert.deepEqual(original, [{ nome: 'Mouse', preco: 50 }]); } }
+        ]
+      }
     ]
   },
   {
