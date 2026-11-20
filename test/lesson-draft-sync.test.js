@@ -42,3 +42,8 @@ test('local drafts enforce the same per-file and aggregate byte limits as the AP
   assert.match(hook, /40 \* 1024/);
   assert.match(hook, /u0000-/);
 });
+
+test('failed cloud reads keep the local account draft visible without auto-overwriting remote state', () => {
+  assert.match(hook, /setReady\(true\);\s*setLoadedKey\(identityKey\);\s*setDirty\(false\);\s*setStatus\('offline'\)/);
+  assert.match(hook, /failed read must never trigger an overwrite attempt/);
+});
