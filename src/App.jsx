@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents } from './auth/session-client.js';
+import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, clearLocalCsrfCookie } from './auth/session-client.js';
 import {
   Code2,
   Terminal,
@@ -3976,7 +3976,16 @@ export default function App() {
             onOpenChallenge={openChallenge}
             onOpenCapstone={() => setActiveView('capstone')}
             onOpenPrivacy={() => setActiveView('privacy')}
+            onOpenSessions={() => setActiveView('sessions')}
           />
+        )}
+
+        {navState.activeView === 'sessions' && (
+          <SessionDevicesView onBack={() => setActiveView('profile')} onLogoutAll={() => {
+            setSessionAccessToken(null); clearLocalCsrfCookie(); setAuthToken(''); setCurrentUser(null);
+            setAuthMode('login'); setAuthError('Todas as sessões foram encerradas. Entre novamente para continuar.');
+            setAuthModalOpen(true); setActiveView('home');
+          }} />
         )}
 
         {/* CENTRAL DE PRIVACIDADE */}
@@ -5602,6 +5611,80 @@ function PublicCertificateVerifierView({ initialCode = '' }) {
 }
 
 // ============================================================================
+
+function SessionDevicesView({ onBack, onLogoutAll }) {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState('');
+  const [error, setError] = useState('');
+  const [confirmAll, setConfirmAll] = useState(false);
+  const loadSessions = async () => {
+    setLoading(true); setError('');
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/auth/session/sessions`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(data.sessions)) throw new Error(data.error || 'Não foi possível carregar os dispositivos.');
+      setSessions(data.sessions);
+    } catch (err) { setError(err.message || 'Falha ao consultar sessões.'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { loadSessions(); }, []);
+  const revokeOne = async (id) => {
+    setBusyId(id); setError('');
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/auth/session/sessions/${encodeURIComponent(id)}`, {
+        method: 'DELETE', headers: { 'X-CSRF-Token': getSessionCsrfToken() }
+      });
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Não foi possível encerrar esta sessão.'); }
+      setSessions(items => items.filter(item => item.id !== id));
+    } catch (err) { setError(err.message || 'Falha ao revogar sessão.'); }
+    finally { setBusyId(''); }
+  };
+  const revokeAll = async () => {
+    setBusyId('all'); setError('');
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/auth/session/logout-all`, {
+        method: 'POST', headers: { 'X-CSRF-Token': getSessionCsrfToken() }
+      });
+      if (response.status !== 204) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'O servidor não confirmou o encerramento de todas as sessões.'); }
+      onLogoutAll();
+    } catch (err) { setError(err.message || 'Falha ao encerrar todas as sessões.'); }
+    finally { setBusyId(''); setConfirmAll(false); }
+  };
+  const formatDate = value => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 'Data indisponível' : date.toLocaleString('pt-BR');
+  };
+  return (
+    <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div><h1 className="text-xl font-bold text-white">Dispositivos conectados</h1><p className="text-sm text-slate-400">Consulte e encerre sessões da sua conta.</p></div>
+        <button type="button" onClick={onBack} className="px-3 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs">Voltar</button>
+      </div>
+      {error && <div role="alert" className="p-3 rounded-xl border border-rose-500/40 bg-rose-950/30 text-rose-200 text-sm">{error}</div>}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+        <div className="flex items-center justify-between gap-3"><h2 className="font-semibold text-white">Sessões ativas</h2><button type="button" onClick={loadSessions} disabled={loading} className="text-xs text-emerald-300 disabled:opacity-50">Atualizar</button></div>
+        {loading ? <p className="text-sm text-slate-400">Carregando sessões…</p> : sessions.length === 0 ? <p className="text-sm text-slate-400">Nenhuma sessão ativa foi encontrada.</p> :
+          <div className="space-y-3">{sessions.map(session => (
+            <div key={session.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div className="min-w-0"><div className="flex items-center gap-2"><span className="font-medium text-sm text-white">{session.current ? 'Este dispositivo' : 'Outro dispositivo'}</span>{session.current && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300">Sessão atual</span>}</div>
+                <p className="text-xs text-slate-400 mt-1">Última atividade: {formatDate(session.lastUsedAt)}</p><p className="text-xs text-slate-500">Criada em: {formatDate(session.createdAt)}</p><p className="text-xs text-slate-500">Expira em: {formatDate(session.expiresAt)}</p>
+              </div>
+              {!session.current && <button type="button" disabled={Boolean(busyId)} onClick={() => revokeOne(session.id)} className="px-3 py-2 rounded-lg border border-rose-500/30 text-rose-300 text-xs hover:bg-rose-950/40 disabled:opacity-50">{busyId === session.id ? 'Encerrando…' : 'Encerrar sessão'}</button>}
+            </div>
+          ))}</div>
+        }
+      </section>
+      <section className="bg-slate-900 border border-rose-900/50 rounded-2xl p-5 space-y-3">
+        <h2 className="font-semibold text-white">Encerrar todas as sessões</h2><p className="text-sm text-slate-400">Isso desconecta este dispositivo e todos os outros dispositivos conectados à sua conta.</p>
+        {!confirmAll ? <button type="button" onClick={() => setConfirmAll(true)} disabled={loading || sessions.length === 0} className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold disabled:opacity-50">Sair de todos os dispositivos</button> :
+          <div className="flex flex-wrap items-center gap-2"><span className="text-sm text-rose-200">Confirmar encerramento de todas as sessões?</span><button type="button" onClick={revokeAll} disabled={busyId === 'all'} className="px-3 py-2 rounded-lg bg-rose-700 text-white text-xs">{busyId === 'all' ? 'Encerrando…' : 'Sim, encerrar todas'}</button><button type="button" onClick={() => setConfirmAll(false)} className="px-3 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs">Cancelar</button></div>
+        }
+      </section>
+    </main>
+  );
+}
+
 // SUB-COMPONENTE: PERFIL DO ALUNO
 // ============================================================================
 function StudentProfileView({
@@ -5613,7 +5696,8 @@ function StudentProfileView({
   allChallenges,
   onOpenChallenge,
   onOpenCapstone,
-  onOpenPrivacy
+  onOpenPrivacy,
+  onOpenSessions
 }) {
   const recentCompleted = useMemo(
     () =>
@@ -5643,6 +5727,14 @@ function StudentProfileView({
         </div>
 
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={onOpenSessions}
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 text-xs font-bold flex items-center gap-1.5"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Dispositivos conectados</span>
+          </button>
           <button
             type="button"
             onClick={onOpenPrivacy}
