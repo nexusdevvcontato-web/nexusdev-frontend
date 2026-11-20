@@ -3868,10 +3868,115 @@ export default function App() {
             allChallenges={allChallenges}
             onOpenChallenge={openChallenge}
             onOpenCapstone={() => setActiveView('capstone')}
+            onOpenPrivacy={() => setActiveView('privacy')}
+          />
+        )}
+
+        {/* CENTRAL DE PRIVACIDADE */}
+        {navState.activeView === 'privacy' && (
+          <PrivacyCenterView
+            authToken={authToken}
+            currentUser={currentUser}
+            onBack={() => setActiveView('profile')}
           />
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// CENTRAL DE PRIVACIDADE: TRANSPARÊNCIA E EXPORTAÇÃO DOS DADOS DA CONTA
+// ============================================================================
+function PrivacyCenterView({ authToken, currentUser, onBack }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleExport = async () => {
+    if (!authToken || loading) return;
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/privacy/export`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Não foi possível exportar os dados da conta.');
+      }
+      const payload = await response.json();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'nexusdev-dados-pessoais.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      setSuccess('Exportação preparada. Confira a pasta de downloads do seu dispositivo.');
+    } catch (err) {
+      setError(err.message || 'Falha ao exportar os dados. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-emerald-400 font-bold">Conta e transparência</p>
+            <h1 className="text-2xl font-bold text-white">Privacidade e seus dados</h1>
+            <p className="text-sm text-slate-400 mt-1">Veja quais informações a NexusDev utiliza e solicite uma cópia dos dados associados à sua conta.</p>
+          </div>
+          <button type="button" onClick={onBack} className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white">Voltar ao perfil</button>
+        </div>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2 text-white font-semibold"><User className="w-4 h-4 text-emerald-400" /> Conta autenticada</div>
+          <p className="text-sm text-slate-300">{currentUser?.name || 'Usuário'} · {currentUser?.email || 'E-mail não disponível'}</p>
+          <p className="text-xs text-slate-500">A exportação é solicitada ao servidor com a sessão atual e contém somente dados vinculados à sua identidade autenticada.</p>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <h2 className="text-base font-bold text-white">Quais dados são armazenados?</h2>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-slate-300">
+            <li>Perfil: nome, e-mail e avatar.</li>
+            <li>Aprendizagem: XP, sequência de atividade, aulas concluídas e código salvo.</li>
+            <li>Certificados e portfólio: código, data de emissão e links informados.</li>
+            <li>Comentários: texto, aula, nome público e data dos comentários associados à conta.</li>
+          </ul>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <h2 className="text-base font-bold text-white">O que pode ser público?</h2>
+          <p className="text-sm text-slate-300">O ranking pode exibir nome, avatar, XP, sequência e aulas concluídas. Comentários exibem nome público, badge, data e texto. A validação de certificados pode exibir nome, código, progresso, XP, data e links de portfólio.</p>
+          <p className="text-xs text-amber-300">Compartilhe seu código de certificado e seus links de portfólio considerando que qualquer pessoa com o código pode consultar os dados apresentados na validação pública.</p>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <h2 className="text-base font-bold text-white">Baixar meus dados</h2>
+          <p className="text-sm text-slate-300">Gere uma cópia JSON dos dados permitidos do seu perfil e dos comentários vinculados à sua conta.</p>
+          <button type="button" onClick={handleExport} disabled={!authToken || loading} className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white">
+            {loading ? 'Preparando exportação...' : 'Baixar meus dados (JSON)'}
+          </button>
+          {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+          {success && <p role="status" className="text-sm text-emerald-300">{success}</p>}
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+          <h2 className="text-base font-bold text-white">Limitações importantes</h2>
+          <p className="text-sm text-slate-300">Comentários antigos sem vínculo verificável com uma conta não são incluídos na exportação. A plataforma ainda não oferece exclusão automática de conta ou anonimização de comentários.</p>
+          <p className="text-sm text-slate-300">Logs de infraestrutura e dados mantidos por provedores externos também não fazem parte deste arquivo. As regras de retenção e o tratamento de certificados emitidos ainda precisam de uma política própria.</p>
+        </section>
+      </div>
+    </main>
   );
 }
 
@@ -5152,7 +5257,8 @@ function StudentProfileView({
   completedChallenges,
   allChallenges,
   onOpenChallenge,
-  onOpenCapstone
+  onOpenCapstone,
+  onOpenPrivacy
 }) {
   const recentCompleted = useMemo(
     () =>
@@ -5181,14 +5287,24 @@ function StudentProfileView({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenCapstone}
-          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Award className="w-4 h-4" />
-          <span>Meu Certificado</span>
-        </button>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={onOpenPrivacy}
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 text-xs font-bold flex items-center gap-1.5"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Privacidade e dados</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenCapstone}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5"
+          >
+            <Award className="w-4 h-4" />
+            <span>Meu Certificado</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
