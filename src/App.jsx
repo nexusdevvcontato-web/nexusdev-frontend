@@ -2376,7 +2376,7 @@ export default function App() {
         : null)
     : 'nexusdev_guest';
 
-  const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('nexusdev_guest');
+  const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('');
   const [storageLoadError, setStorageLoadError] = useState(false);
   const storageIdentityReady = sessionIdentityResolved && !sessionIdentityError && !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
 
