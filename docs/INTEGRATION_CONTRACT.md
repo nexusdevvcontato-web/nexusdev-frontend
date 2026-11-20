@@ -49,11 +49,15 @@ Branch: `rebuild/v2-security`
 
 ## Staging checklist
 
-1. Deploy only the staging backend and set its secrets outside the repository.
-2. Set backend `CORS_ORIGINS` to the exact frontend preview origin(s).
-3. Set frontend `VITE_API_BASE_URL` to the staging API URL and rebuild.
-4. Verify register/login/`/api/me`, Google verification, comments, tutor, leaderboard, and certificate error paths against staging.
-5. Do not enable official lesson XP until the isolated runner, proof signer, public key, and adversarial integration tests are operational.
+1. Provision a separate Render staging backend and isolated test database; never reuse production credentials or data.
+2. Confirm the actual staging hostname and the exact Vercel Preview origin.
+3. Configure backend `CORS_ORIGINS` with the exact Preview origin.
+4. Add the external `/api/*` rewrite to `vercel.json`, targeting only the confirmed staging hostname. Keep the rewrite before the SPA fallback and do not cache API responses.
+5. Leave frontend `VITE_API_BASE_URL` empty so the browser uses same-origin `/api/*` requests through Vercel.
+6. Build and deploy Preview only; verify register/login/`/api/me`, Google verification, comments, tutor, leaderboard, certificate error paths, cookies, refresh, logout and CSRF against staging.
+7. Do not enable official lesson XP until the isolated runner, proof signer, public key, and adversarial integration tests are operational.
+
+See `docs/VERCEL_STAGING_PROXY.md` for the proxy contract and the reason the rewrite remains unconfigured until a staging hostname exists.
 
 ## Central de privacidade no frontend
 
