@@ -2487,6 +2487,8 @@ export default function App() {
         : null)
     : 'nexusdev_guest';
 
+  const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('nexusdev_guest');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('Todas');
   const [statusFilter, setStatusFilter] = useState('Todas');
@@ -2528,7 +2530,24 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (!userStoragePrefix) return;
     try {
+      if (currentUser?.email && currentUser?.id) {
+        const legacyPrefix = `nexusdev_user_${currentUser.email}`;
+        const legacyKeys = Object.keys(localStorage).filter((key) =>
+          key.startsWith(`${legacyPrefix}_`) &&
+          (['_completed', '_comm_xp', '_streak', '_cap_checks', '_cap_sub'].some((suffix) => key === `${legacyPrefix}${suffix}`) ||
+            key.startsWith(`${legacyPrefix}_draft_`))
+        );
+        for (const legacyKey of legacyKeys) {
+          const targetKey = `${userStoragePrefix}${legacyKey.slice(legacyPrefix.length)}`;
+          const legacyValue = localStorage.getItem(legacyKey);
+          if (legacyValue !== null && localStorage.getItem(targetKey) === null) {
+            localStorage.setItem(targetKey, legacyValue);
+          }
+          localStorage.removeItem(legacyKey);
+        }
+      }
       const savedCompleted = localStorage.getItem(`${userStoragePrefix}_completed`);
       setCompletedChallenges(savedCompleted ? JSON.parse(savedCompleted) : []);
 
@@ -2550,26 +2569,32 @@ export default function App() {
       } else {
         setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });
       }
-    } catch {}
-  }, [userStoragePrefix, todayStr]);
+      setLoadedStoragePrefix(userStoragePrefix);
+    } catch {
+      setLoadedStoragePrefix(userStoragePrefix);
+    }
+  }, [userStoragePrefix, currentUser?.id, currentUser?.email, todayStr]);
 
   useEffect(() => {
+    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_completed`, JSON.stringify(completedChallenges));
     } catch {}
-  }, [completedChallenges, userStoragePrefix]);
+  }, [completedChallenges, userStoragePrefix, loadedStoragePrefix]);
 
   useEffect(() => {
+    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_comm_xp`, String(communityXP));
     } catch {}
-  }, [communityXP, userStoragePrefix]);
+  }, [communityXP, userStoragePrefix, loadedStoragePrefix]);
 
   useEffect(() => {
+    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_streak`, JSON.stringify(streakData));
     } catch {}
-  }, [streakData, userStoragePrefix]);
+  }, [streakData, userStoragePrefix, loadedStoragePrefix]);
 
   const [capstoneChecks, setCapstoneChecks] = useState(() => {
     try {
@@ -2615,16 +2640,18 @@ export default function App() {
   }, [userStoragePrefix, currentUser]);
 
   useEffect(() => {
+    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_cap_checks`, JSON.stringify(capstoneChecks));
     } catch {}
-  }, [capstoneChecks, userStoragePrefix]);
+  }, [capstoneChecks, userStoragePrefix, loadedStoragePrefix]);
 
   useEffect(() => {
+    if (!userStoragePrefix || loadedStoragePrefix !== userStoragePrefix) return;
     try {
       localStorage.setItem(`${userStoragePrefix}_cap_sub`, JSON.stringify(capstoneSubmission));
     } catch {}
-  }, [capstoneSubmission, userStoragePrefix]);
+  }, [capstoneSubmission, userStoragePrefix, loadedStoragePrefix]);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -4382,9 +4409,9 @@ function ChallengeWorkspace({
     setActiveFileName(names[0] || 'index.html');
 
     try {
-      const savedDraft = JSON.parse(
-        localStorage.getItem(`${userStoragePrefix}_draft_${challenge.id}`) || 'null'
-      );
+      const savedDraft = userStoragePrefix
+        ? JSON.parse(localStorage.getItem(`${userStoragePrefix}_draft_${challenge.id}`) || 'null')
+        : null;
       if (savedDraft && typeof savedDraft === 'object') {
         setFilesMap({ ...initialFiles, ...savedDraft });
       } else {
@@ -4433,7 +4460,7 @@ function ChallengeWorkspace({
     const updated = { ...filesMap, [activeFileName]: newValue };
     setFilesMap(updated);
     try {
-      localStorage.setItem(`${userStoragePrefix}_draft_${challenge.id}`, JSON.stringify(updated));
+      if (userStoragePrefix) localStorage.setItem(`${userStoragePrefix}_draft_${challenge.id}`, JSON.stringify(updated));
     } catch {}
   };
 
@@ -4442,7 +4469,7 @@ function ChallengeWorkspace({
     setTestResults([]);
     setAllPassed(false);
     try {
-      localStorage.removeItem(`${userStoragePrefix}_draft_${challenge.id}`);
+      if (userStoragePrefix) localStorage.removeItem(`${userStoragePrefix}_draft_${challenge.id}`);
     } catch {}
   };
 
