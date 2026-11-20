@@ -4917,7 +4917,7 @@ function ChallengeWorkspace({
                 <iframe
                   title="Preview HTML e CSS"
                   srcDoc={previewSrcDoc}
-                  sandbox="allow-scripts"
+                  sandbox=""
                   className="w-full h-56 rounded-xl border border-slate-700 bg-slate-950"
                 />
               )}
