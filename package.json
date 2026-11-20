@@ -26,5 +26,6 @@
   "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=20.19.0"
-  }
+  },
+  "description": "NexusDev interactive programming education platform"
 }
