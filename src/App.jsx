@@ -2439,7 +2439,8 @@ export default function App() {
           count: 1,
           todayCompleted: 0,
           lastActiveDate: todayStr
-        }
+        },
+        allowedChallengeIds: allChallenges.map((challenge) => challenge.id)
       });
       setCompletedChallenges(storedProgress.completed);
       setCommunityXP(storedProgress.communityXp);
