@@ -24,3 +24,9 @@ test('profile restoration replaces client account identity only with a validated
   assert.match(source, /if \(Array\.isArray\(data\.completedIds\)\) \{\s*setCompletedChallenges\(data\.completedIds\)/);
   assert.match(source, /setSessionIdentityError\(true\);\s*setSessionIdentityResolved\(true\)/);
 });
+
+
+test('guest storage is not writable until its persisted progress has been validated', () => {
+  assert.match(source, /const \[loadedStoragePrefix, setLoadedStoragePrefix\] = useState\(''\)/);
+  assert.match(source, /if \(!userStoragePrefix \|\| loadedStoragePrefix !== userStoragePrefix\) return;[\s\S]*?localStorage\.setItem\(\`\$\{userStoragePrefix\}_completed\`/);
+});
