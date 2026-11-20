@@ -17,6 +17,15 @@ test('accepts only an empty file map at revision zero', () => {
   }), /draft_response_invalid/);
 });
 
+test('normalizes the API empty-draft representation without weakening persisted-draft validation', () => {
+  assert.deepEqual(validateRemoteDraft({
+    draft: { revision: 0, files: null, updatedAt: null }
+  }), { revision: 0, files: {}, updatedAt: null });
+  assert.throws(() => validateRemoteDraft({
+    draft: { revision: 1, files: null }
+  }), /draft_response_invalid/);
+});
+
 test('rejects missing, negative, fractional, unsafe, and malformed revisions', () => {
   for (const revision of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '2', null]) {
     assert.throws(() => validateRemoteDraft({
