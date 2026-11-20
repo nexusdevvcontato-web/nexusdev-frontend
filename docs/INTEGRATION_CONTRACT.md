@@ -25,6 +25,8 @@ Branch: `rebuild/v2-security`
 | Read comments | `GET /api/lessons/:lessonId/comments` | `{comments:[...]}` |
 | Create comment | Authenticated `POST /api/lessons/:lessonId/comments`, `{text}` | `{comment,xp}`; comments do not award XP |
 | Privacy export | Authenticated `GET /api/privacy/export`, Bearer token | JSON `schemaVersion: 2`, own profile data and comments linked by `authorUserId` |
+| Privacy preferences | Authenticated `GET/PUT /api/privacy/preferences`, Bearer token | `{preferences:{showInLeaderboard,showCertificateDetails}}`; PUT accepts only boolean fields |
+| Public certificate visibility | `GET /api/certificates/:code` | If details are hidden, `{valid:true,code,publicDetails:false}` without personal details |
 
 ## Changes made in this audit
 
@@ -59,3 +61,12 @@ Branch: `rebuild/v2-security`
 - O botão de exportação chama `GET /api/privacy/export` com o token da sessão e baixa a resposta JSON; falhas de rede/autorização são exibidas sem simular sucesso.
 - A interface informa que comentários antigos sem vínculo, logs de infraestrutura e dados de provedores externos não estão incluídos e que exclusão/anonimização ainda não estão disponíveis.
 - Nenhuma exclusão de conta, alteração de perfil ou mudança de visibilidade pública é executada nesta tela.
+
+### Preferências granulares de visibilidade
+
+- A central de privacidade carrega e salva as preferências no backend, sem depender apenas do estado local do navegador.
+- A pessoa pode sair do ranking público ou ocultar os detalhes pessoais na validação pública do certificado.
+- Um certificado com detalhes ocultos continua validável como autêntico; a resposta pública não contém nome, XP, progresso, data ou links.
+- A tela informa que a opção de ranking controla somente a lista pública da API. O perfil local da própria sessão pode continuar visível ao titular.
+- Contas legadas mantêm temporariamente os valores compatíveis com a divulgação anterior até que a pessoa altere as opções.
+- O ranking não usa mais nomes fictícios de fallback quando a API retorna uma lista vazia.
