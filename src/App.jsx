@@ -5023,9 +5023,10 @@ function ChallengeWorkspace({
 // ============================================================================
 // SUB-COMPONENTE: RANKING SEMANAL & MEDALHAS
 // ============================================================================
-function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) {
+function LeaderboardView() {
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -5035,37 +5036,14 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
         if (!response.ok) throw new Error('Não foi possível carregar o ranking.');
         const data = await response.json();
         if (!Array.isArray(data?.leaderboard)) throw new Error('Resposta de ranking inválida.');
-        return data;
+        return data.leaderboard;
       })
-      .then((data) => {
-        if (!active) return;
-        const apiList = data.leaderboard;
-        const base = apiList;
-        const selfEntry = {
-          rank: 0,
-          name: currentUser ? `${currentUser.name} (Você)` : 'Você (Visitante)',
-          xp: totalXP,
-          streak: streakCount,
-          completedCount,
-          isSelf: true
-        };
-        const merged = [...base.filter((u) => u.name !== currentUser?.name), selfEntry]
-          .sort((a, b) => b.xp - a.xp)
-          .map((item, idx) => ({ ...item, rank: idx + 1 }));
-        setLeaders(merged);
+      .then((apiList) => {
+        if (active) setLeaders(apiList);
       })
       .catch((error) => {
         if (!active || error?.name === 'AbortError') return;
-        setLeaders([
-          {
-            rank: 1,
-            name: currentUser ? `${currentUser.name} (Você)` : 'Você (Visitante)',
-            xp: totalXP,
-            streak: streakCount,
-            completedCount,
-            isSelf: true
-          }
-        ]);
+        setLoadError('O ranking oficial está temporariamente indisponível. Sua pontuação local não foi usada como substituta.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -5075,7 +5053,7 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
       active = false;
       controller.abort();
     };
-  }, [currentUser, totalXP, streakCount, completedCount]);
+  }, []);
 
   return (
     <main className="flex-1 p-4 sm:p-8 overflow-y-auto space-y-6">
@@ -5087,26 +5065,26 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
               <span>Ranking da Comunidade NexusDev</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Conclua aulas (+50 XP) e participe do fórum (+10 XP) para subir no ranking.
+              Classificação baseada somente no XP confirmado pelo servidor.
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold">
-            Seu XP: {totalXP}
+          <span className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs font-bold">
+            Top 15 oficial
           </span>
         </div>
 
         {loading ? (
           <p className="text-xs text-slate-400 py-6 text-center">Carregando classificação...</p>
+        ) : loadError ? (
+          <p role="status" className="text-xs text-amber-300 py-6 text-center">{loadError}</p>
+        ) : leaders.length === 0 ? (
+          <p className="text-xs text-slate-400 py-6 text-center">Ainda não há pontuações oficiais para exibir.</p>
         ) : (
           <div className="space-y-2.5">
             {leaders.slice(0, 15).map((u) => (
               <div
-                key={`${u.name}-${u.rank}`}
-                className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
-                  u.isSelf
-                    ? 'bg-emerald-950/30 border-emerald-500/40'
-                    : 'bg-slate-950/70 border-slate-800'
-                }`}
+                key={u.rank}
+                className="p-3.5 rounded-xl border flex items-center justify-between gap-3 bg-slate-950/70 border-slate-800"
               >
                 <div className="flex items-center gap-3">
                   <span
@@ -5134,6 +5112,9 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
             ))}
           </div>
         )}
+        <p className="text-[11px] text-slate-500 mt-4">
+          O progresso e o XP salvos apenas neste dispositivo não alteram posições oficiais.
+        </p>
       </div>
     </main>
   );
