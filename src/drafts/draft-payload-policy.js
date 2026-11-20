@@ -33,3 +33,14 @@ export function validateRemoteDraft(payload) {
   }
   return draft;
 }
+
+export function validateSavedDraftResponse(payload, expectedRevision) {
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
+      expectedRevision >= Number.MAX_SAFE_INTEGER ||
+      payload?.saved !== true ||
+      !Number.isSafeInteger(payload?.draft?.revision) ||
+      payload.draft.revision !== expectedRevision + 1) {
+    throw new Error('draft_save_response_invalid');
+  }
+  return payload.draft.revision;
+}
