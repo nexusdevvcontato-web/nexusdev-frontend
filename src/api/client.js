@@ -5,7 +5,7 @@ export function apiFetch(path, options = {}) {
     throw new TypeError('Caminho de API inválido.');
   }
 
-  return fetch(\`${API_BASE_URL}${path}\`, {
+  return fetch(API_BASE_URL + path, {
     ...options,
     credentials: 'include',
     cache: options.cache || 'no-store'
