@@ -3,6 +3,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '
 const REFRESH_LOCK_NAME = 'nexusdev-session-refresh';
 let accessToken = null;
 let refreshInFlight = null;
+let sessionEpoch = 0;
+let logoutInProgress = false;
 const listeners = new Set();
 let channel = null;
 
@@ -45,6 +47,8 @@ export function getSessionCsrfToken() {
 }
 
 async function performRefresh() {
+  if (logoutInProgress) return null;
+  const refreshEpoch = sessionEpoch;
   const csrfToken = getSessionCsrfToken();
   const response = await fetch(`${API_BASE_URL}/api/auth/session/refresh`, {
     method: 'POST',
@@ -53,6 +57,7 @@ async function performRefresh() {
     headers: { 'X-CSRF-Token': csrfToken }
   });
   const payload = await response.json().catch(() => ({}));
+  if (refreshEpoch !== sessionEpoch || logoutInProgress) return null;
   if (!response.ok || typeof payload.accessToken !== 'string') {
     setSessionAccessToken(null);
     return null;
@@ -62,6 +67,7 @@ async function performRefresh() {
 }
 
 export function refreshSession() {
+  if (logoutInProgress) return Promise.resolve(null);
   if (refreshInFlight) return refreshInFlight;
   const run = async () => {
     if (typeof navigator === 'undefined' || !navigator.locks?.request) {
@@ -107,6 +113,8 @@ export function clearLocalCsrfCookie() {
 }
 
 export async function logoutSession(token) {
+  logoutInProgress = true;
+  sessionEpoch += 1;
   let serverRevoked = false;
   try {
     const csrfToken = getSessionCsrfToken();
@@ -127,6 +135,7 @@ export async function logoutSession(token) {
     setSessionAccessToken(null);
     try { channel?.postMessage({ type: 'logout' }); } catch {}
     notify({ type: 'logout' });
+    logoutInProgress = false;
   }
   return serverRevoked;
 }
