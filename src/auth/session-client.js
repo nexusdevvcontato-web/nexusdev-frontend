@@ -35,7 +35,7 @@ export function subscribeSessionEvents(listener) {
   return () => listeners.delete(listener);
 }
 
-function readCsrfCookie() {
+export function getSessionCsrfToken() {
   if (typeof document === 'undefined') return '';
   const item = document.cookie.split(';').map(part => part.trim())
     .find(part => part.startsWith('__Host-nexusdev_csrf='));
@@ -44,7 +44,7 @@ function readCsrfCookie() {
 }
 
 async function performRefresh() {
-  const csrfToken = readCsrfCookie();
+  const csrfToken = getSessionCsrfToken();
   const response = await fetch(`${API_BASE_URL}/api/auth/session/refresh`, {
     method: 'POST',
     credentials: 'include',
@@ -104,7 +104,7 @@ export function clearLocalCsrfCookie() {
 export async function logoutSession(token) {
   let serverRevoked = false;
   try {
-    const csrfToken = readCsrfCookie();
+    const csrfToken = getSessionCsrfToken();
     const response = await fetch(`${API_BASE_URL}/api/auth/session/logout`, {
       method: 'POST',
       credentials: 'include',
