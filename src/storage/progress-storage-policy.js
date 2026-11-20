@@ -15,8 +15,8 @@ export function validateStoredProgress({ completed, communityXp, streak }) {
   if (!Number.isSafeInteger(count) || count < 1 || count > 100000 ||
       !Number.isSafeInteger(todayCompleted) || todayCompleted < 0 || todayCompleted > 1000 ||
       typeof streak.lastActiveDate !== 'string' ||
-      !/^\\d{4}-\\d{2}-\\d{2}$/.test(streak.lastActiveDate) ||
-      Number.isNaN(Date.parse(streak.lastActiveDate + 'T00:00:00.000Z'))) {
+      !/^\d{4}-\d{2}-\d{2}$/.test(streak.lastActiveDate) ||
+      (() => { const parsed = new Date(streak.lastActiveDate + 'T00:00:00.000Z'); return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== streak.lastActiveDate; })()) {
     throw new TypeError('Sequência local inválida.');
   }
   return {
