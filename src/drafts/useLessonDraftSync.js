@@ -51,9 +51,9 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
       if (storageKey) localStorage.setItem(storageKey, JSON.stringify(nextFiles));
     } catch {}
     setDirty(true);
-    setStatus('local');
+    setStatus(conflict ? 'conflict' : 'local');
     setConflict((previous) => previous ? { ...previous, localFiles: nextFiles } : null);
-  }, [storageKey]);
+  }, [storageKey, conflict]);
 
   useEffect(() => {
     const generationAtLoad = editGenerationRef.current;
@@ -196,6 +196,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   const keepLocalVersion = useCallback(() => {
     if (!conflict?.remoteDraft) return;
     setRevision(conflict.remoteDraft.revision);
+    lastCloudContentRef.current = JSON.stringify(conflict.remoteDraft.files);
     setConflict(null);
     setDirty(true);
     setStatus('local');
