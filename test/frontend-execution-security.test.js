@@ -7,7 +7,9 @@ const appSource = await readFile(new URL('../src/App.jsx', import.meta.url), 'ut
 test('student JavaScript is never dynamically evaluated in the app origin', () => {
   assert.doesNotMatch(appSource, /\bnew\s+Function\s*\(/);
   assert.doesNotMatch(appSource, /\beval\s*\(/);
+  assert.doesNotMatch(appSource, /runDynamicMemoryInspector/);
   assert.match(appSource, /isolated-runner-unavailable/);
+  assert.match(appSource, /Inspetor temporariamente indisponível/);
 });
 
 test('HTML preview is restricted by a deny-by-default CSP', () => {
