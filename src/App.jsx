@@ -2766,12 +2766,17 @@ export default function App() {
     setAuthError('');
   };
 
-  const handleLogout = () => {
-    void logoutSession(authToken);
+  const handleLogout = async () => {
+    const serverRevoked = await logoutSession(authToken);
     setCurrentUser(null);
     setAuthToken('');
     if (navState.activeView === 'profile') {
       setActiveView('home');
+    }
+    if (!serverRevoked) {
+      setAuthError('Saída local realizada, mas o servidor não confirmou a revogação da sessão. O cookie de proteção foi invalidado neste navegador; tente entrar novamente quando a conexão estiver estável.');
+      setAuthMode('login');
+      setAuthModalOpen(true);
     }
   };
 
