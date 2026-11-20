@@ -50,6 +50,7 @@ test('enforces aggregate UTF-8 byte limits, not JavaScript character counts', ()
 test('rejects arrays, empty maps, unsafe names, control characters, and oversized files', () => {
   assert.equal(isValidDraftFiles([]), false);
   assert.equal(isValidDraftFiles({}), false);
+  assert.equal(isValidDraftFiles(Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`file${i}.js`, 'x']))), false);
   assert.equal(isValidDraftFiles({ '../x.js': 'x' }), false);
   assert.equal(isValidDraftFiles({ 'x.js': 'a\u0001b' }), false);
   assert.equal(isValidDraftFiles({ 'x.js': 'x'.repeat(50 * 1024 + 1) }), false);
