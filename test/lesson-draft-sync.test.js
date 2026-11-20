@@ -39,6 +39,6 @@ test('draft saves are aborted when the active identity changes and newer edits a
 
 test('local drafts enforce the same per-file and aggregate byte limits as the API', () => {
   assert.match(hook, /50 \* 1024/);
-  assert.match(hook, /80 \* 1024/);
+  assert.match(hook, /40 \* 1024/);
   assert.match(hook, /content\.includes\('\\\\u0000'\)/);
 });
