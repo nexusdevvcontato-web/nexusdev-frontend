@@ -14,13 +14,13 @@ test('a restored refresh session must load /api/me before account-scoped storage
   assert.match(source, /const \[sessionBootstrapComplete, setSessionBootstrapComplete\] = useState\(false\)/);
   assert.match(source, /const \[sessionIdentityResolved, setSessionIdentityResolved\] = useState\(false\)/);
   assert.match(source, /authenticatedFetch\(\x60\$\{API_BASE_URL\}\/api\/me\x60/);
-  assert.match(source, /typeof user\?\.id !== 'string'.*?24/);
+  assert.match(source, /typeof data\?\.id !== 'string'.*?24/);
   assert.match(source, /const storageIdentityReady = sessionIdentityResolved && !sessionIdentityError && !storageLoadError/);
   assert.match(source, /Não foi possível confirmar sua sessão com segurança/);
 });
 
 test('profile restoration replaces client account identity only with a validated Mongo user id', () => {
-  assert.match(source, /id: user\.id,[\s\S]*?provider: user\.provider \|\| 'email'/);
+  assert.match(source, /id: data\.id,[\s\S]*?provider: data\.provider \|\| prev\?\.provider \|\| 'email'/);
   assert.match(source, /if \(Array\.isArray\(user\.completedIds\)\) setCompletedChallenges\(user\.completedIds\)/);
   assert.match(source, /setSessionIdentityError\(true\);\s*setSessionIdentityResolved\(true\)/);
 });
