@@ -14,7 +14,7 @@ test('storage identity boundary only opens for the exact loaded namespace', () =
 
 test('account-sensitive application tree fails closed on identity or storage errors', async () => {
   const source = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
-  assert.ok(source.includes('const storageIdentityReady = !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix)'));
+  assert.ok(source.includes('const storageIdentityReady = sessionIdentityResolved && !sessionIdentityError && !storageLoadError && isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix)'));
   assert.ok(source.includes('{storageIdentityReady ? ('));
   assert.ok(source.includes('Preparando os dados deste perfil com segurança'));
   assert.ok(source.includes('Não foi possível ler os dados locais deste perfil com segurança.'));
