@@ -159,7 +159,8 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
         const payload = await response.json().catch(() => ({}));
         if (activeIdentityRef.current !== identityKey) return;
         if (response.status === 409 && payload?.conflict && payload?.draft) {
-          setConflict({ localFiles: filesRef.current, remoteDraft: payload.draft });
+          const remoteDraft = validateRemoteDraft({ draft: payload.draft });
+          setConflict({ localFiles: filesRef.current, remoteDraft });
           setStatus('conflict');
           setDirty(false);
           return;
@@ -192,8 +193,14 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   }, [challengeId, filesMap, revision, dirty, ready, loadedKey, identityKey, userId, conflict, retrySaveCount]);
 
   const useCloudVersion = useCallback(() => {
-    if (!conflict?.remoteDraft || !isValidDraftFiles(conflict.remoteDraft.files)) return;
-    const remote = conflict.remoteDraft;
+    if (!conflict?.remoteDraft) return;
+    let remote;
+    try {
+      remote = validateRemoteDraft({ draft: conflict.remoteDraft });
+    } catch {
+      setStatus('offline');
+      return;
+    }
     filesRef.current = remote.files;
     setFilesMap(remote.files);
     setRevision(remote.revision);
@@ -206,8 +213,15 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
 
   const keepLocalVersion = useCallback(() => {
     if (!conflict?.remoteDraft) return;
-    setRevision(conflict.remoteDraft.revision);
-    lastCloudContentRef.current = JSON.stringify(conflict.remoteDraft.files);
+    let remote;
+    try {
+      remote = validateRemoteDraft({ draft: conflict.remoteDraft });
+    } catch {
+      setStatus('offline');
+      return;
+    }
+    setRevision(remote.revision);
+    lastCloudContentRef.current = JSON.stringify(remote.files);
     setConflict(null);
     setDirty(true);
     setStatus('local');
