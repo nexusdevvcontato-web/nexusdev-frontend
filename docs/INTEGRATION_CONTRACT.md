@@ -29,6 +29,16 @@ Branch: `rebuild/v2-security`
 | Reauthentication | Authenticated `POST /api/auth/reauthenticate`, `{password}` for password accounts or `{credential}` for Google accounts | `{reauthToken,expiresIn}`; token is short-lived, user-bound and single-use; requires dedicated `REAUTH_TOKEN_SECRET` |
 | Public certificate visibility | `GET /api/certificates/:code` | If details are hidden, `{valid:true,code,publicDetails:false}` without personal details |
 
+## Parallel session authentication API
+
+- Login/cadastro/Google use `/api/auth/session/*` and return a short-lived `accessToken`; refresh token is issued only as an HttpOnly cookie.
+- Frontend keeps the access token in memory only and removes the legacy `nexusdev_token` key at startup.
+- Refresh uses `POST /api/auth/session/refresh`, CSRF cookie/header, and Web Locks to serialize rotation across tabs. BroadcastChannel carries logout events only, never tokens.
+- Protected requests use the in-memory access token and retry once after a 401-triggered refresh.
+- Logout calls `POST /api/auth/session/logout`; other tabs clear their in-memory token on the broadcast event.
+- The backend legacy `requireAuth` now accepts either a valid legacy JWT or a session access token linked to an active session, preserving existing protected routes during migration.
+- The frontend still requires backend `SESSION_ACCESS_TOKEN_SECRET` in staging. Until provisioned, the parallel session endpoints return 503 by design.
+
 ## Changes made in this audit
 
 - Removed the hard-coded production Render API URL; endpoint selection is environment-specific.
@@ -84,3 +94,6 @@ See `docs/VERCEL_STAGING_PROXY.md` for the proxy contract and the reason the rew
 - A prova retornada fica apenas em memória React enquanto a tela está montada; não é persistida em localStorage, sessionStorage ou URL. Ao sair da tela, é descartada.
 - A confirmação apenas prepara a prova de uso único de cinco minutos. Não há botão nem endpoint de exclusão de conta conectado à interface.
 - Para testes, configure o Client ID Google no frontend e o mesmo audience no backend de staging, além de `REAUTH_TOKEN_SECRET` distinto da chave de sessão. Não configure a URL de produção.
+
+
+See `docs/FRONTEND_SESSION_CLIENT.md` for the client lifecycle, memory-only token handling, and cross-tab coordination details.
