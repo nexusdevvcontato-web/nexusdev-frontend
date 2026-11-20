@@ -47,3 +47,11 @@ test('failed cloud reads keep the local account draft visible without auto-overw
   assert.match(hook, /setReady\(true\);\s*setLoadedKey\(identityKey\);\s*setDirty\(false\);\s*setStatus\('offline'\)/);
   assert.match(hook, /failed read must never trigger an overwrite attempt/);
 });
+
+
+test('malformed persisted cloud revisions fail closed and never become revision-zero saves', () => {
+  assert.match(hook, /remote\.revision > 0 && !isFileMap\(remote\.files\)/);
+  assert.match(hook, /remote\.revision === 0 && Object\.keys\(remote\.files\)\.length !== 0/);
+  assert.match(hook, /throw new Error\('draft_response_invalid'\)/);
+  assert.match(hook, /failed read must never trigger an overwrite attempt/);
+});
