@@ -92,12 +92,22 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
       if (!response.ok) throw new Error('draft_load_failed');
       const payload = await response.json();
       const remote = payload?.draft;
-      if (!remote || !Number.isSafeInteger(remote.revision) || remote.revision < 0) {
+      if (!remote || !Number.isSafeInteger(remote.revision) || remote.revision < 0 ||
+          !remote.files || typeof remote.files !== 'object' || Array.isArray(remote.files)) {
+        throw new Error('draft_response_invalid');
+      }
+      // A persisted revision must always carry a valid, non-empty file map.
+      // Treat malformed cloud content as unavailable instead of attempting a
+      // revision-zero save that could create misleading conflict state.
+      if (remote.revision > 0 && !isFileMap(remote.files)) {
+        throw new Error('draft_response_invalid');
+      }
+      if (remote.revision === 0 && Object.keys(remote.files).length !== 0) {
         throw new Error('draft_response_invalid');
       }
       if (!active) return;
 
-      if (remote.revision > 0 && isFileMap(remote.files)) {
+      if (remote.revision > 0) {
         const wasEditedDuringLoad = editGenerationRef.current !== generationAtLoad;
         const localFilesNow = filesRef.current;
         const localJson = JSON.stringify(local.files);
