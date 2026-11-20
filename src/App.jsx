@@ -185,13 +185,6 @@ function analyzeStudentCodeLocal(challenge, filesMap, testResults) {
   return tips;
 }
 
-// Student code is never evaluated in the application origin.
-function runDynamicMemoryInspector() {
-  return {
-    error: 'O inspetor está temporariamente desativado enquanto o executor isolado é preparado.'
-  };
-}
-
 // ============================================================================
 // CONSTRUTOR DE CURRÍCULO ÚNICO E PROGRESSIVO (140 AULAS POR MÓDULO = 700 AULAS)
 // ============================================================================
@@ -4343,11 +4336,6 @@ function ChallengeWorkspace({
   const [aiTips, setAiTips] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
 
-  const [traceArgsInput, setTraceArgsInput] = useState(
-    JSON.stringify(challenge.defaultTraceArgs || [10])
-  );
-  const [memoryReport, setMemoryReport] = useState(null);
-
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [commentError, setCommentError] = useState('');
@@ -4377,8 +4365,6 @@ function ChallengeWorkspace({
     setAllPassed(false);
     setShowHint(false);
     setAiTips([]);
-    setMemoryReport(null);
-    setTraceArgsInput(JSON.stringify(challenge.defaultTraceArgs || [10]));
 
     try {
       const savedComments = JSON.parse(
@@ -4567,11 +4553,6 @@ function ChallengeWorkspace({
     } finally {
       setAiLoading(false);
     }
-  };
-
-  const handleRunMemory = () => {
-    const report = runDynamicMemoryInspector(challenge, filesMap, traceArgsInput);
-    setMemoryReport(report);
   };
 
   const handleAddComment = async (e) => {
@@ -5002,46 +4983,9 @@ function ChallengeWorkspace({
               )}
 
               {bottomTab === 'memory' && challenge.language !== 'html' && (
-                <div className="space-y-3 text-xs">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={traceArgsInput}
-                      onChange={(e) => setTraceArgsInput(e.target.value)}
-                      placeholder='Argumentos JSON, ex: [100, 20]'
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-white"
-                    />
-                    <button
-                      type="button"
-                      disabled
-                      className="px-3.5 py-1.5 rounded-lg bg-slate-700 text-slate-300 font-semibold cursor-not-allowed"
-                      title="Aguardando executor isolado"
-                    >
-                      Executor isolado em preparação
-                    </button>
-                  </div>
-
-                  {memoryReport && (
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2 font-mono">
-                      {memoryReport.error ? (
-                        <p className="text-rose-300">{memoryReport.error}</p>
-                      ) : (
-                        <>
-                          <div className="text-sky-300">
-                            Variáveis de entrada: {JSON.stringify(memoryReport.memorySnapshot)}
-                          </div>
-                          <div className="text-emerald-300">
-                            Retorno da função: {memoryReport.actualOutput} ({memoryReport.durationMs} ms)
-                          </div>
-                          {memoryReport.logs?.length > 0 && (
-                            <div className="pt-1 border-t border-slate-800 text-amber-200">
-                              console.log: {memoryReport.logs.join(' | ')}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
+                <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-xs text-amber-100 space-y-2">
+                  <div className="font-semibold">Inspetor temporariamente indisponível</div>
+                  <p>Para proteger sua conta, o código dos exercícios não é executado dentro da aplicação. O inspetor será reativado quando o executor isolado estiver implantado e integrado com os testes de segurança.</p>
                 </div>
               )}
 
