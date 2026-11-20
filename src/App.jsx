@@ -3892,6 +3892,64 @@ function PrivacyCenterView({ authToken, currentUser, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [preferences, setPreferences] = useState({
+    showInLeaderboard: true,
+    showCertificateDetails: true
+  });
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [savingPreference, setSavingPreference] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE_URL}/api/privacy/preferences`, {
+      headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
+      cache: 'no-store'
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Não foi possível carregar suas preferências.');
+        return payload;
+      })
+      .then((payload) => {
+        if (active && payload.preferences) setPreferences({
+          showInLeaderboard: payload.preferences.showInLeaderboard !== false,
+          showCertificateDetails: payload.preferences.showCertificateDetails !== false
+        });
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Falha ao carregar preferências.');
+      })
+      .finally(() => { if (active) setPreferencesLoading(false); });
+    return () => { active = false; };
+  }, [authToken]);
+
+  const updatePreference = async (key, value) => {
+    if (!authToken || savingPreference) return;
+    setSavingPreference(key);
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/privacy/preferences`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ [key]: value })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível salvar a preferência.');
+      setPreferences({
+        showInLeaderboard: payload.preferences?.showInLeaderboard !== false,
+        showCertificateDetails: payload.preferences?.showCertificateDetails !== false
+      });
+      setSuccess('Preferência de privacidade salva.');
+    } catch (err) {
+      setError(err.message || 'Falha ao salvar preferência.');
+    } finally {
+      setSavingPreference('');
+    }
+  };
 
   const handleExport = async () => {
     if (!authToken || loading) return;
@@ -3958,6 +4016,40 @@ function PrivacyCenterView({ authToken, currentUser, onBack }) {
           <h2 className="text-base font-bold text-white">O que pode ser público?</h2>
           <p className="text-sm text-slate-300">O ranking pode exibir nome, avatar, XP, sequência e aulas concluídas. Comentários exibem nome público, badge, data e texto. A validação de certificados pode exibir nome, código, progresso, XP, data e links de portfólio.</p>
           <p className="text-xs text-amber-300">Compartilhe seu código de certificado e seus links de portfólio considerando que qualquer pessoa com o código pode consultar os dados apresentados na validação pública.</p>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h2 className="text-base font-bold text-white">Escolha o que deseja compartilhar</h2>
+          <p className="text-xs text-slate-400">Você pode alterar estas opções a qualquer momento. As configurações atuais de contas antigas são preservadas até que você escolha outra opção.</p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={preferences.showInLeaderboard}
+              disabled={preferencesLoading || !!savingPreference}
+              onChange={(event) => updatePreference('showInLeaderboard', event.target.checked)}
+              className="mt-1 accent-emerald-500"
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-semibold text-white">Aparecer no ranking público</span>
+              <span className="block text-xs text-slate-400">Quando ativado, seu nome, avatar, XP, sequência e total de aulas concluídas podem aparecer no ranking.</span>
+            </span>
+          </label>
+          <div className="border-t border-slate-800" />
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={preferences.showCertificateDetails}
+              disabled={preferencesLoading || !!savingPreference}
+              onChange={(event) => updatePreference('showCertificateDetails', event.target.checked)}
+              className="mt-1 accent-emerald-500"
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-semibold text-white">Exibir detalhes na validação pública do certificado</span>
+              <span className="block text-xs text-slate-400">Quando desativado, o código continua confirmando a autenticidade, mas nome, XP, progresso, data e links deixam de ser exibidos publicamente.</span>
+            </span>
+          </label>
+          {preferencesLoading && <p className="text-xs text-slate-400">Carregando preferências...</p>}
+          {!!savingPreference && <p role="status" className="text-xs text-slate-400">Salvando alteração...</p>}
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
@@ -4782,12 +4874,7 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
       .then((data) => {
         if (!active) return;
         const apiList = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
-        const fallback = [
-          { rank: 1, name: 'Camila Rocha', xp: 1250, streak: 9, completedCount: 25 },
-          { rank: 2, name: 'Rafael Costa', xp: 950, streak: 6, completedCount: 19 },
-          { rank: 3, name: 'Bianca Alves', xp: 700, streak: 5, completedCount: 14 }
-        ];
-        const base = apiList.length > 0 ? apiList : fallback;
+        const base = apiList;
         const selfEntry = {
           rank: 0,
           name: currentUser ? `${currentUser.name} (Você)` : 'Você (Visitante)',
@@ -5222,12 +5309,18 @@ function PublicCertificateVerifierView({ initialCode = '' }) {
               <CheckCircle2 className="w-4 h-4" />
               <span>CERTIFICADO AUTÊNTICO • {result.code}</span>
             </div>
-            <h2 className="text-xl font-bold text-white pt-1">{result.studentName}</h2>
-            <p className="text-xs text-slate-300">
-              Aulas concluídas: <strong>{result.completedCount}</strong> • Experiência total:{' '}
-              <strong>{result.xp} XP</strong>
-            </p>
-            {result.githubUrl && (
+            {result.publicDetails === false ? (
+              <p className="text-sm text-slate-300 pt-2">O certificado é autêntico. A pessoa titular optou por não exibir publicamente os dados pessoais associados a ele.</p>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-white pt-1">{result.studentName}</h2>
+                <p className="text-xs text-slate-300">
+                  Aulas concluídas: <strong>{result.completedCount}</strong> • Experiência total:{' '}
+                  <strong>{result.xp} XP</strong>
+                </p>
+              </>
+            )}
+            {result.publicDetails !== false && result.githubUrl && (
               <a
                 href={result.githubUrl}
                 target="_blank"
