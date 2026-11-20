@@ -2382,6 +2382,7 @@ export default function App() {
       .then((data) => {
         if (!active || !data?.email) return;
         setCurrentUser((prev) => ({
+          id: String(data.id || ''),
           name: data.name,
           email: data.email,
           avatar: data.avatar || '',
@@ -2431,6 +2432,7 @@ export default function App() {
                   setSessionAccessToken(apiData.accessToken);
                   setAuthToken(apiData.accessToken);
                   setCurrentUser({
+                    id: String(apiData.user.id || ''),
                     name: apiData.user.name,
                     email: apiData.user.email,
                     avatar: apiData.user.avatar || '',
@@ -2479,7 +2481,11 @@ export default function App() {
     }
   }, [authModalOpen, googleClientId]);
 
-  const userStoragePrefix = currentUser ? `nexusdev_user_${currentUser.email}` : 'nexusdev_guest';
+  const userStoragePrefix = currentUser
+    ? (typeof currentUser.id === 'string' && /^[a-f0-9]{24}$/i.test(currentUser.id)
+        ? `nexusdev_user_${currentUser.id}`
+        : null)
+    : 'nexusdev_guest';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('Todas');
@@ -2717,6 +2723,7 @@ export default function App() {
       setSessionAccessToken(data.accessToken);
       setAuthToken(data.accessToken);
       setCurrentUser({
+        id: String(data.user.id || ''),
         name: data.user.name,
         email: data.user.email,
         avatar: data.user.avatar || '',
