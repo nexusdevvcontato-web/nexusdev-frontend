@@ -36,3 +36,12 @@ the legacy application is already compliant.
 - `index.html` still loads Tailwind from the unpinned CDN. Removing that runtime dependency requires bundling the utility CSS locally and verifying the full visual build; it remains a production-hardening item, not silently removed in this security-only pass.
 - The frontend CI currently verifies the Vite production build. Dedicated component/integration tests for session restoration, account switching, browser-storage isolation and hostile editor content remain to be added.
 - No production deployment was performed. The Vercel Preview remains the only frontend deployment target for this branch.
+
+## Account-scoped browser storage migration
+
+- Authenticated learning data now uses the opaque MongoDB account identifier returned by the authenticated API, rather than embedding the user's email address in local-storage keys.
+- The frontend migrates only the known legacy keys for the currently authenticated email: local completion snapshot, community XP, streak, capstone checklist/submission, and lesson drafts. Public comment cache remains separately keyed by lesson because it contains public discussion data.
+- Migration copies a legacy value only when the stable-ID destination is absent, then removes the legacy key. It does not merge conflicting values or transfer data between accounts.
+- Storage writes are paused until the new account namespace has been loaded, preventing the previous account's in-memory state from being written into the next account's namespace during an account switch.
+- If the authenticated response does not provide a valid 24-character MongoDB ObjectId, account-scoped persistence is disabled rather than falling back to email or shared guest storage.
+- The migration is client-side and was not run against any production or staging user account. The Vite build validates compilation; browser-level migration and account-switch tests remain a required follow-up.
