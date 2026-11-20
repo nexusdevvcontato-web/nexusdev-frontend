@@ -3800,7 +3800,6 @@ export default function App() {
             totalChallengesCount={totalInteractiveChallenges}
             currentUser={currentUser}
             authToken={authToken}
-            onEnqueueSync={enqueueSyncItem}
           />
         )}
 
@@ -5029,7 +5028,6 @@ function CapstoneSpecView({
   totalChallengesCount,
   currentUser,
   authToken,
-  onEnqueueSync
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
