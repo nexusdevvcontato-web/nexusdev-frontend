@@ -4114,17 +4114,33 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
 
   const handleExport = async () => {
     if (!authToken || loading) return;
+    if (!reauthProof || Date.now() >= reauthProof.expiresAt) {
+      setReauthProof(null);
+      setReauthError('Sua confirmação expirou. Confirme sua identidade novamente para exportar os dados.');
+      return;
+    }
+    const proofToken = reauthProof.token;
+    setReauthProof(null);
+    setReauthError('');
+    setReauthSuccess('');
     setLoading(true);
     setError('');
     setSuccess('');
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/api/privacy/export`, {
         method: 'GET',
-        headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          Accept: 'application/json',
+          'X-Reauth-Token': proofToken
+        },
         cache: 'no-store'
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setReauthError('A confirmação expirou ou já foi utilizada. Confirme sua identidade novamente.');
+        }
         throw new Error(payload.error || 'Não foi possível exportar os dados da conta.');
       }
       const payload = await response.json();
@@ -4138,6 +4154,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
       link.remove();
       URL.revokeObjectURL(objectUrl);
       setSuccess('Exportação preparada. Confira a pasta de downloads do seu dispositivo.');
+      setReauthSuccess('Confirmação utilizada com sucesso. Para uma nova exportação, confirme novamente.');
     } catch (err) {
       setError(err.message || 'Falha ao exportar os dados. Tente novamente.');
     } finally {
@@ -4258,9 +4275,9 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
           <h2 className="text-base font-bold text-white">Baixar meus dados</h2>
-          <p className="text-sm text-slate-300">Gere uma cópia JSON dos dados permitidos do seu perfil e dos comentários vinculados à sua conta.</p>
-          <button type="button" onClick={handleExport} disabled={!authToken || loading} className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white">
-            {loading ? 'Preparando exportação...' : 'Baixar meus dados (JSON)'}
+          <p className="text-sm text-slate-300">Gere uma cópia JSON dos dados permitidos do seu perfil e dos comentários vinculados à sua conta. Por segurança, cada exportação exige uma confirmação de identidade válida por cinco minutos e de uso único.</p>
+          <button type="button" onClick={handleExport} disabled={!authToken || loading || !reauthProof} className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white">
+            {loading ? 'Preparando exportação...' : reauthProof ? 'Baixar meus dados (JSON)' : 'Confirme sua identidade para exportar'}
           </button>
           {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
           {success && <p role="status" className="text-sm text-emerald-300">{success}</p>}
