@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiFetch, API_BASE_URL } from './api/client.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, clearLocalCsrfCookie } from './auth/session-client.js';
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
+import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
 import {
   Code2,
   Terminal,
@@ -2336,6 +2337,7 @@ export default function App() {
     : 'nexusdev_guest';
 
   const [loadedStoragePrefix, setLoadedStoragePrefix] = useState('nexusdev_guest');
+  const storageIdentityReady = isStorageIdentityReady(userStoragePrefix, loadedStoragePrefix);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('Todas');
@@ -3218,6 +3220,7 @@ export default function App() {
       {/* ====================================================================
           CORPO PRINCIPAL COM MENU LATERAL DE MÓDULOS + CONTEÚDO
          ==================================================================== */}
+      {storageIdentityReady ? (
       <div className="flex-1 max-w-7xl w-full mx-auto flex relative">
         {mobileMenuOpen && (
           <div
@@ -3843,6 +3846,11 @@ export default function App() {
           />
         )}
       </div>
+      ) : (
+        <main role="status" aria-live="polite" className="flex-1 max-w-7xl w-full mx-auto p-8 flex items-center justify-center text-sm text-slate-400">
+          Preparando os dados deste perfil com segurança…
+        </main>
+      )}
     </div>
   );
 }
