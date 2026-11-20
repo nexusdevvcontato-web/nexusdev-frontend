@@ -48,3 +48,26 @@ test('legacy email-keyed learning data is not automatically assigned to a user I
   assert.doesNotMatch(app, /const legacyPrefix = \x60nexusdev_user_\$\{currentUser\.email\}\x60/);
   assert.doesNotMatch(app, /localStorage\.removeItem\(legacyKey\)/);
 });
+
+
+test('confirmed global logout clears this tab and broadcasts revocation to other tabs', async () => {
+  const start = source.indexOf('export function finalizeSessionLogout()');
+  const end = source.indexOf('\n}', start) + 2;
+  const body = source.slice(start, end);
+  assert.ok(start >= 0);
+  assert.match(body, /logoutInProgress = true/);
+  assert.match(body, /sessionEpoch \+= 1/);
+  assert.match(body, /accessToken = null/);
+  assert.match(body, /clearLocalCsrfCookie\(\)/);
+  assert.match(body, /channel\?\.postMessage\(\{ type: 'logout' \}\)/);
+  assert.match(body, /notify\(\{ type: 'logout' \}\)/);
+});
+
+test('global logout is broadcast only after the API confirms revocation', async () => {
+  const app = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const start = app.indexOf('const revokeAll = async () =>');
+  const end = app.indexOf('\n  };', start) + 5;
+  const body = app.slice(start, end);
+  assert.ok(body.indexOf('response.status !== 204') < body.indexOf('onLogoutAll()'));
+  assert.match(app, /onLogoutAll=\{\(\) => \{\s*finalizeSessionLogout\(\)/);
+});
