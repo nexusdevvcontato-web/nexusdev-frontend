@@ -25,6 +25,8 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
   channel = new BroadcastChannel('nexusdev-session-events');
   channel.addEventListener('message', (event) => {
     if (event.data?.type === 'logout') {
+      sessionEpoch += 1;
+      logoutInProgress = true;
       accessToken = null;
       notify({ type: 'logout' });
     }
@@ -33,6 +35,7 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
 
 export function setSessionAccessToken(token) {
   accessToken = typeof token === 'string' && token ? token : null;
+  if (accessToken) logoutInProgress = false;
   notify({ type: 'token', token: accessToken });
 }
 
