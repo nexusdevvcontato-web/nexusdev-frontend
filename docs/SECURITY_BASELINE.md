@@ -37,14 +37,13 @@ the legacy application is already compliant.
 - The frontend CI currently verifies the Vite production build. Dedicated component/integration tests for session restoration, account switching, browser-storage isolation and hostile editor content remain to be added.
 - No production deployment was performed. The Vercel Preview remains the only frontend deployment target for this branch.
 
-## Account-scoped browser storage migration
+## Account-scoped browser storage isolation
 
-- Authenticated learning data now uses the opaque MongoDB account identifier returned by the authenticated API, rather than embedding the user's email address in local-storage keys.
-- The frontend migrates only the known legacy keys for the currently authenticated email: local completion snapshot, community XP, streak, capstone checklist/submission, and lesson drafts. Public comment cache remains separately keyed by lesson because it contains public discussion data.
-- Migration copies a legacy value only when the stable-ID destination is absent, then removes the legacy key. It does not merge conflicting values or transfer data between accounts.
+- Authenticated learning data uses the opaque MongoDB account identifier returned by the authenticated API, rather than embedding the user's email address in local-storage keys.
+- Legacy email-keyed learning data is deliberately not auto-migrated: an email address alone is not sufficient evidence that the current account owns data left by a prior account or a reassigned email. Existing legacy keys are left untouched; no local data is deleted by this change.
 - Storage writes are paused until the new account namespace has been loaded, preventing the previous account's in-memory state from being written into the next account's namespace during an account switch.
 - If the authenticated response does not provide a valid 24-character MongoDB ObjectId, account-scoped persistence is disabled rather than falling back to email or shared guest storage.
-- The migration is client-side and was not run against any production or staging user account. The Vite build validates compilation; browser-level migration and account-switch tests remain a required follow-up.
+- The policy is covered by source-level regression tests. Full browser-level migration and account-switch tests remain outstanding; no production or staging user browser storage was accessed.
 
 ## Pending synchronization queue isolation
 
@@ -80,3 +79,11 @@ the legacy application is already compliant.
 - `authenticatedFetch` now resolves every target against the configured API base and rejects non-`/api/` paths, cross-origin destinations, protocol-relative URLs, lookalike domains, and credential-bearing URLs before it attaches the in-memory Bearer token.
 - When `VITE_API_BASE_URL` is unset, only same-origin `/api/` routes are accepted (the Vercel Preview/production rewrite model). When configured, only the configured API origin is accepted.
 - Added Node regression tests for same-origin and configured-backend requests, external-domain/token-exfiltration attempts, protocol-relative URLs, path traversal, invalid schemes, and confirmation that `authenticatedFetch` actually sends the validated URL.
+
+
+## Cross-tab logout and refresh invalidation
+
+- A logout broadcast received through the session BroadcastChannel increments the local session epoch, marks logout in progress, clears the in-memory access token, and notifies the application.
+- A refresh request that began before that broadcast checks the captured epoch before accepting its response, preventing a late response from restoring a token after logout in another tab.
+- A new authenticated access token clears the local logout-in-progress guard after an explicit sign-in/session establishment.
+- Node regression tests assert the cross-tab invalidation ordering and guard reset. Browser-level multi-tab race testing remains outstanding.
