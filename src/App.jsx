@@ -2873,7 +2873,7 @@ export default function App() {
 
             <div
               title={`Meta diária: ${Math.min(streakData.todayCompleted, 2)}/2 aulas hoje`}
-              className="hidden md:flex items-center gap-1.5 bg-orange-950/40 px-2.5 py-1.5 rounded-xl border border-orange-500/30 text-xs"
+              className={`items-center gap-1.5 bg-orange-950/40 px-2.5 py-1.5 rounded-xl border border-orange-500/30 text-xs ${storageIdentityReady ? 'hidden md:flex' : 'hidden'}`}
             >
               <Flame className="w-4 h-4 text-orange-400 fill-orange-400" />
               <span className="font-bold text-orange-300">{streakData.count}d</span>
@@ -2882,7 +2882,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="hidden xl:flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
+            <div className={`items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs ${storageIdentityReady ? 'hidden xl:flex' : 'hidden'}`}>
               <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
               <span className="font-mono font-semibold text-amber-300">{totalXP} XP</span>
               <span className="text-slate-600">|</span>
