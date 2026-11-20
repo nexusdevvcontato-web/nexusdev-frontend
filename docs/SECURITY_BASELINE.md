@@ -45,3 +45,12 @@ the legacy application is already compliant.
 - Storage writes are paused until the new account namespace has been loaded, preventing the previous account's in-memory state from being written into the next account's namespace during an account switch.
 - If the authenticated response does not provide a valid 24-character MongoDB ObjectId, account-scoped persistence is disabled rather than falling back to email or shared guest storage.
 - The migration is client-side and was not run against any production or staging user account. The Vite build validates compilation; browser-level migration and account-switch tests remain a required follow-up.
+
+## Pending synchronization queue isolation
+
+- The synchronization queue now has a separate local-storage namespace per authenticated MongoDB account ID. A queue is loaded and persisted only after the matching owner namespace has been selected.
+- The global legacy key `nexusdev_sync_queue` is deliberately not imported or replayed: its records have no trustworthy owner identifier, so assigning them to whichever account logs in next could disclose or submit another person's code or certificate data.
+- Queue entries are limited to 25 and filtered to the two known record types. Unknown record types are retained rather than silently discarded.
+- The flush process now requires the queue owner to match the authenticated account, checks each HTTP response's `ok` status before removing an item, and aborts in-flight fetches when the effect is cleaned up (including account changes).
+- The old queue is left untouched for now; no production or staging browser storage was accessed. The current application does not enqueue new items through this path, so browser-level queue replay tests are still needed before treating offline synchronization as a supported feature.
+- The Tailwind CDN is intentionally not removed in this change: the application uses utility classes throughout a large single-file UI, and removing the runtime stylesheet before adding a locally pinned build pipeline and visual regression checks could break the interface.
