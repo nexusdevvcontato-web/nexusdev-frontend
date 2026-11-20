@@ -4212,8 +4212,7 @@ function ChallengeWorkspace({
   const {
     filesMap, setFilesMap, reset: resetDraft,
     status: draftSyncStatus, conflict: draftConflict,
-    useCloudVersion, keepLocalVersion, retry: retryDraftLoad, retrySave: retryDraftSave,
-    isLoading: draftIsLoading
+    useCloudVersion, keepLocalVersion, retry: retryDraftLoad
   } = useLessonDraftSync({
     challengeId: challenge.id,
     initialFiles: challenge.files || {},
