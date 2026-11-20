@@ -4472,21 +4472,29 @@ function ChallengeWorkspace({
     }
 
     let active = true;
-    apiFetch(`/api/lessons/${encodeURIComponent(challenge.id)}/comments`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!active || !Array.isArray(data?.comments) || data.comments.length === 0) return;
+    const controller = new AbortController();
+    apiFetch(`/api/lessons/${encodeURIComponent(challenge.id)}/comments`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Não foi possível carregar os comentários.');
+        const data = await response.json();
+        if (!Array.isArray(data?.comments)) throw new Error('Resposta de comentários inválida.');
+        if (!active || data.comments.length === 0) return;
         setComments((prev) => {
-          const ids = new Set(data.comments.map((c) => c.id));
-          return [...data.comments, ...prev.filter((p) => !ids.has(p.id))];
+          const ids = new Set(data.comments.map((comment) => comment.id));
+          return [...data.comments, ...prev.filter((item) => !ids.has(item.id))];
         });
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (error?.name !== 'AbortError') {
+          // Mantém os comentários locais quando a API estiver indisponível.
+        }
+      });
 
     setBottomTab(challenge.language === 'html' ? 'preview' : 'tests');
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [challenge, userStoragePrefix]);
 
@@ -5192,11 +5200,17 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
 
   useEffect(() => {
     let active = true;
-    apiFetch('/api/leaderboard')
-      .then((r) => r.json())
+    const controller = new AbortController();
+    apiFetch('/api/leaderboard', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Não foi possível carregar o ranking.');
+        const data = await response.json();
+        if (!Array.isArray(data?.leaderboard)) throw new Error('Resposta de ranking inválida.');
+        return data;
+      })
       .then((data) => {
         if (!active) return;
-        const apiList = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
+        const apiList = data.leaderboard;
         const base = apiList;
         const selfEntry = {
           rank: 0,
@@ -5211,8 +5225,8 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
           .map((item, idx) => ({ ...item, rank: idx + 1 }));
         setLeaders(merged);
       })
-      .catch(() => {
-        if (!active) return;
+      .catch((error) => {
+        if (!active || error?.name === 'AbortError') return;
         setLeaders([
           {
             rank: 1,
@@ -5230,6 +5244,7 @@ function LeaderboardView({ currentUser, totalXP, streakCount, completedCount }) 
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [currentUser, totalXP, streakCount, completedCount]);
 
