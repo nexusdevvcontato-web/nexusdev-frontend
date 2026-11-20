@@ -105,24 +105,6 @@ function highlightCode(code, fileName) {
 }
 
 // ============================================================================
-// PROTEÇÃO CONTRA LOOP INFINITO NO EDITOR (EVITA TRAVAR A ABA DO NAVEGADOR)
-// ============================================================================
-function injectLoopProtection(code, maxIterations = 25000) {
-  let loopCounter = 0;
-  const header = `let __loopOps = 0; const __tick = () => { if (++__loopOps > ${maxIterations}) { throw new Error('Loop infinito ou excesso de iterações detectado (limite: ${maxIterations}). Verifique a condição do seu laço!'); } };\n`;
-
-  const instrumented = String(code || '').replace(
-    /\b(while\s*\([^)]*\)|for\s*\([^)]*\)|do)\s*\{/g,
-    (match) => {
-      loopCounter += 1;
-      return `${match} __tick();`;
-    }
-  );
-
-  return loopCounter > 0 ? header + instrumented : code;
-}
-
-// ============================================================================
 // MOTOR LOCAL DO TUTOR IA (COMPLEMENTADO PELA ROTA /api/tutor/analyze)
 // ============================================================================
 function analyzeStudentCodeLocal(challenge, filesMap, testResults) {
@@ -203,75 +185,11 @@ function analyzeStudentCodeLocal(challenge, filesMap, testResults) {
   return tips;
 }
 
-// ============================================================================
-// VISUALIZADOR DE MEMÓRIA DINÂMICO (EXECUTA COM INPUTS REAIS + CAPTURA CONSOLE.LOG)
-// ============================================================================
-function runDynamicMemoryInspector(challenge, filesMap, customArgsJson) {
-  const jsCode = Object.values(filesMap || {}).join('\n');
-  const fnName = challenge.targetFunction;
-  const logs = [];
-
-  const sandboxConsole = {
-    log: (...items) =>
-      logs.push(items.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' ')),
-    warn: (...items) =>
-      logs.push('[WARN] ' + items.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' ')),
-    error: (...items) =>
-      logs.push('[ERRO] ' + items.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' '))
+// Student code is never evaluated in the application origin.
+function runDynamicMemoryInspector() {
+  return {
+    error: 'O inspetor está temporariamente desativado enquanto o executor isolado é preparado.'
   };
-
-  try {
-    let parsedArgs = challenge.defaultTraceArgs || [10];
-    if (customArgsJson && customArgsJson.trim()) {
-      const parsed = JSON.parse(customArgsJson);
-      parsedArgs = Array.isArray(parsed) ? parsed : [parsed];
-    }
-
-    const safeJsCode = injectLoopProtection(jsCode, 25000);
-    const factory = new Function(
-      'console',
-      `"use strict";\n${safeJsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
-    );
-    const userFn = factory(sandboxConsole);
-
-    if (typeof userFn !== 'function') {
-      return {
-        error: `Defina a função "${fnName}" corretamente no editor para inspecionar sua execução.`
-      };
-    }
-
-    const startTime = performance.now();
-    const actualOutput = userFn(...parsedArgs);
-    const durationMs = (performance.now() - startTime).toFixed(2);
-
-    const paramNamesMatch = jsCode.match(new RegExp(`function\\s+${fnName}\\s*\\(([^)]*)\\)`));
-    const paramNames = paramNamesMatch
-      ? paramNamesMatch[1]
-          .split(',')
-          .map((p) => p.trim())
-          .filter(Boolean)
-      : parsedArgs.map((_, i) => `arg${i + 1}`);
-
-    const memorySnapshot = {};
-    paramNames.forEach((pName, idx) => {
-      memorySnapshot[pName] = parsedArgs[idx];
-    });
-
-    return {
-      fnName,
-      args: parsedArgs,
-      memorySnapshot,
-      actualOutput: JSON.stringify(actualOutput),
-      logs,
-      durationMs,
-      staticSteps: challenge.traceDemo?.steps || null
-    };
-  } catch (err) {
-    return {
-      error: `Erro durante a inspeção de memória: ${err.message}`,
-      logs
-    };
-  }
 }
 
 // ============================================================================
@@ -4536,10 +4454,24 @@ function ChallengeWorkspace({
     if (challenge.language !== 'html') return '';
     const htmlPart = filesMap['index.html'] || '';
     const cssPart = filesMap['style.css'] || '';
-    return `<!doctype html><html><head><meta charset="utf-8"><style>${cssPart}</style></head><body>${htmlPart}</body></html>`;
+    const policy = "default-src 'none'; script-src 'none'; connect-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; media-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><style>${cssPart}</style></head><body>${htmlPart}</body></html>`;
   }, [challenge.language, filesMap]);
 
   const runTests = () => {
+    if (challenge.language !== 'html') {
+      setTestResults([{
+        id: 'isolated-runner-unavailable',
+        description: 'Execução JavaScript isolada',
+        passed: false,
+        error: 'A execução foi temporariamente desativada para proteger sua conta. O executor isolado ainda não está implantado.'
+      }]);
+      setAllPassed(false);
+      setBottomTab('tests');
+      setMobilePanel('output');
+      return;
+    }
+
     const results = [];
     const assert = {
       strictEqual: (actual, expected) => {
@@ -4560,6 +4492,8 @@ function ChallengeWorkspace({
       iframe.style.left = '-9999px';
       iframe.style.width = '800px';
       iframe.style.height = '600px';
+      // Parent may inspect the DOM, but the sandbox does not grant script execution.
+      iframe.setAttribute('sandbox', 'allow-same-origin');
       document.body.appendChild(iframe);
 
       try {
@@ -4587,42 +4521,6 @@ function ChallengeWorkspace({
         }
       } finally {
         document.body.removeChild(iframe);
-      }
-    } else {
-      const jsCode = Object.values(filesMap || {}).join('\n');
-      const fnName = challenge.targetFunction;
-
-      let userFn = null;
-      let compileError = null;
-      try {
-        const safeJsCode = injectLoopProtection(jsCode, 25000);
-        const factory = new Function(
-          `"use strict";\n${safeJsCode};\nreturn typeof ${fnName} !== 'undefined' ? ${fnName} : undefined;`
-        );
-        userFn = factory();
-        if (typeof userFn !== 'function') {
-          compileError = `A função "${fnName}" não foi encontrada ou não é uma função.`;
-        }
-      } catch (err) {
-        compileError = err?.message || 'Erro de sintaxe no código.';
-      }
-
-      for (const t of challenge.tests || []) {
-        if (compileError) {
-          results.push({ id: t.id, description: t.description, passed: false, error: compileError });
-          continue;
-        }
-        try {
-          t.testFn(userFn, assert);
-          results.push({ id: t.id, description: t.description, passed: true });
-        } catch (err) {
-          results.push({
-            id: t.id,
-            description: t.description,
-            passed: false,
-            error: err?.message || 'Erro ao executar o teste.'
-          });
-        }
       }
     }
 
@@ -5115,10 +5013,11 @@ function ChallengeWorkspace({
                     />
                     <button
                       type="button"
-                      onClick={handleRunMemory}
-                      className="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold"
+                      disabled
+                      className="px-3.5 py-1.5 rounded-lg bg-slate-700 text-slate-300 font-semibold cursor-not-allowed"
+                      title="Aguardando executor isolado"
                     >
-                      Inspecionar Execução
+                      Executor isolado em preparação
                     </button>
                   </div>
 
