@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents } from './auth/session-client.js';
 import {
   Code2,
   Terminal,
@@ -2195,13 +2196,52 @@ export default function App() {
   // ==========================================================================
   // SISTEMA DE AUTENTICAÇÃO CLOUD (E-MAIL/SENHA + GOOGLE OAUTH)
   // ==========================================================================
-  const [authToken, setAuthToken] = useState(() => {
-    try {
-      return localStorage.getItem('nexusdev_token') || '';
-    } catch {
-      return '';
+  const [authToken, setAuthToken] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    try { localStorage.removeItem('nexusdev_token'); } catch {}
+    refreshSession()
+      .then((token) => { if (active) setAuthToken(token || ''); })
+      .catch(() => { if (active) setAuthToken(''); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => subscribeSessionEvents((event) => {
+    if (event.type === 'logout') {
+      setAuthToken('');
+      setCurrentUser(null);
+    } else if (event.type === 'token') {
+      setAuthToken(event.token || '');
     }
-  });
+  }), []);
+
+  useEffect(() => {
+    if (!authToken) return undefined;
+    let active = true;
+    const renew = async () => {
+      try {
+        const token = await refreshSession();
+        if (active && token) setAuthToken(token);
+        if (active && !token) {
+          setAuthToken('');
+          setCurrentUser(null);
+        }
+      } catch {}
+    };
+    const interval = setInterval(renew, 8 * 60 * 1000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') renew();
+    };
+    window.addEventListener('focus', onVisibility);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', onVisibility);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [authToken]);
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -2272,7 +2312,7 @@ export default function App() {
           for (const item of syncQueue) {
             try {
               if (item.type === 'complete') {
-                await fetch(`${API_BASE_URL}/api/progress/complete`, {
+                await authenticatedFetch(`${API_BASE_URL}/api/progress/complete`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -2284,7 +2324,7 @@ export default function App() {
                   })
                 });
               } else if (item.type === 'certificate') {
-                await fetch(`${API_BASE_URL}/api/certificates/issue`, {
+                await authenticatedFetch(`${API_BASE_URL}/api/certificates/issue`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -2347,7 +2387,7 @@ export default function App() {
       return () => { active = false; };
     }
 
-    fetch(`${API_BASE_URL}/api/me`, {
+    authenticatedFetch(`${API_BASE_URL}/api/me`, {
       headers: { Authorization: `Bearer ${authToken}` }
     })
       .then((res) => {
@@ -2378,8 +2418,8 @@ export default function App() {
       .catch(() => {
         if (!active) return;
         setCurrentUser(null);
+        setSessionAccessToken(null);
         setAuthToken('');
-        try { localStorage.removeItem('nexusdev_token'); } catch {}
       });
 
     return () => { active = false; };
@@ -2395,15 +2435,15 @@ export default function App() {
             client_id: googleClientId,
             callback: async (response) => {
               try {
-                const apiRes = await fetch(`${API_BASE_URL}/api/auth/google`, {
+                const apiRes = await fetch(`${API_BASE_URL}/api/auth/session/google`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ credential: response.credential })
                 });
                 const apiData = await apiRes.json();
-                if (apiData && apiData.token && apiData.user) {
-                  localStorage.setItem('nexusdev_token', apiData.token);
-                  setAuthToken(apiData.token);
+                if (apiData && apiData.accessToken && apiData.user) {
+                  setSessionAccessToken(apiData.accessToken);
+                  setAuthToken(apiData.accessToken);
                   setCurrentUser({
                     name: apiData.user.name,
                     email: apiData.user.email,
@@ -2610,7 +2650,7 @@ export default function App() {
 
     setAuthLoading(true);
     try {
-      const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+      const endpoint = authMode === 'register' ? '/api/auth/session/register' : '/api/auth/session/login';
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2622,13 +2662,13 @@ export default function App() {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || !data.token || !data.user) {
+      if (!res.ok || !data.accessToken || !data.user) {
         setAuthError(data.error || 'Não foi possível autenticar. Verifique a conexão com a API.');
         return;
       }
 
-      localStorage.setItem('nexusdev_token', data.token);
-      setAuthToken(data.token);
+      setSessionAccessToken(data.accessToken);
+      setAuthToken(data.accessToken);
       setCurrentUser({
         name: data.user.name,
         email: data.user.email,
@@ -2663,11 +2703,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    void logoutSession(authToken);
     setCurrentUser(null);
     setAuthToken('');
-    try {
-      localStorage.removeItem('nexusdev_token');
-    } catch {}
     if (navState.activeView === 'profile') {
       setActiveView('home');
     }
@@ -3909,7 +3947,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_BASE_URL}/api/privacy/preferences`, {
+    authenticatedFetch(`${API_BASE_URL}/api/privacy/preferences`, {
       headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
       cache: 'no-store'
     })
@@ -3946,7 +3984,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
             setReauthSuccess('');
             setReauthProof(null);
             try {
-              const apiResponse = await fetch(`${API_BASE_URL}/api/auth/reauthenticate`, {
+              const apiResponse = await authenticatedFetch(`${API_BASE_URL}/api/auth/reauthenticate`, {
                 method: 'POST',
                 headers: {
                   Authorization: `Bearer ${authToken}`,
@@ -4070,7 +4108,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
     setError('');
     setSuccess('');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/privacy/export`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/privacy/export`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
         cache: 'no-store'
@@ -4514,7 +4552,7 @@ function ChallengeWorkspace({
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`, {
+      const res = await authenticatedFetch(`${API_BASE_URL}/api/lessons/${encodeURIComponent(challenge.id)}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
