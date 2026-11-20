@@ -36,3 +36,15 @@ test('refresh and logout resolve their endpoints through the authenticated API U
   assert.match(source, /fetch\(sessionApiUrl\('\/api\/auth\/session\/logout'\)/);
   assert.doesNotMatch(source, /fetch\(\x60\$\{API_BASE_URL\}\/api\/auth\/session\//);
 });
+
+test('a logout broadcast from another tab invalidates local refreshes', () => {
+  assert.match(source, /event\.data\?\.type === 'logout'[\s\S]*?sessionEpoch \+= 1[\s\S]*?logoutInProgress = true[\s\S]*?accessToken = null/);
+  assert.match(source, /if \(accessToken\) logoutInProgress = false/);
+});
+
+test('legacy email-keyed learning data is not automatically assigned to a user ID', async () => {
+  const app = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  assert.match(app, /Legacy email-keyed data is intentionally left untouched/);
+  assert.doesNotMatch(app, /const legacyPrefix = \x60nexusdev_user_\$\{currentUser\.email\}\x60/);
+  assert.doesNotMatch(app, /localStorage\.removeItem\(legacyKey\)/);
+});
