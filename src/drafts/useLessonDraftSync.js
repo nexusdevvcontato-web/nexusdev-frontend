@@ -7,7 +7,7 @@ function isFileMap(value) {
     Object.keys(value).length > 0 &&
     Object.entries(value).every(([name, content]) =>
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(name) && !name.includes('..') &&
-      typeof content === 'string' && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(content) === false &&
+      typeof content === 'string' && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(content) &&
       new TextEncoder().encode(content).byteLength <= 50 * 1024
     )) && Object.values(value).reduce((sum, content) => sum + new TextEncoder().encode(content).byteLength, 0) <= 40 * 1024;
 }
