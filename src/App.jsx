@@ -4237,7 +4237,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
             <li>Perfil: nome, e-mail e avatar.</li>
             <li>Aprendizagem: XP, sequência de atividade, aulas concluídas e código salvo.</li>
             <li>Certificados e portfólio: código, data de emissão e links informados.</li>
-            <li>Comentários: texto, aula, nome público e data dos comentários associados à conta.</li>
+            <li>Comentários: texto, aula, nome público e data dos comentários associados à conta. Comentários antigos sem vínculo seguro com uma conta não são atribuídos por suposição.</li>
             <li>Sessões: datas de criação, última atividade, expiração e revogação, sem tokens ou segredos de autenticação.</li>
           </ul>
         </section>
