@@ -2243,14 +2243,7 @@ export default function App() {
     };
   }, [authToken]);
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem('nexusdev_current_user');
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [googleClientId, setGoogleClientId] = useState(() => {
     try {
@@ -2361,16 +2354,6 @@ export default function App() {
       window.removeEventListener('online', pingAndFlush);
     };
   }, [authToken, syncQueue]);
-
-  useEffect(() => {
-    try {
-      if (currentUser) {
-        localStorage.setItem('nexusdev_current_user', JSON.stringify(currentUser));
-      } else {
-        localStorage.removeItem('nexusdev_current_user');
-      }
-    } catch {}
-  }, [currentUser]);
 
   useEffect(() => {
     try {
