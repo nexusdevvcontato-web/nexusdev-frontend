@@ -37,6 +37,12 @@ test('draft saves are aborted when the active identity changes and newer edits a
   assert.match(hook, /setRetrySaveCount/);
 });
 
+test('409 conflict payloads are validated before either resolution action can proceed', () => {
+  assert.match(hook, /const remoteDraft = validateRemoteDraft\(\{ draft: payload\.draft \}\)/);
+  assert.match(hook, /remote = validateRemoteDraft\(\{ draft: conflict\.remoteDraft \}\)/);
+  assert.match(hook, /catch \{\s*setStatus\('offline'\);\s*return;/);
+});
+
 test('local drafts enforce the same per-file and aggregate byte limits as the API', async () => {
   const policy = await readFile(new URL('../src/drafts/draft-payload-policy.js', import.meta.url), 'utf8');
   assert.match(policy, /MAX_FILE_BYTES = 50 \* 1024/);
