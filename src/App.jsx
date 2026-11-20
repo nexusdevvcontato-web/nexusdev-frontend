@@ -4294,8 +4294,6 @@ function ChallengeWorkspace({
     resetDraft(challenge.files || {});
     setTestResults([]);
     setAllPassed(false);
-    try {
-    } catch {}
   };
 
   const insertSymbol = (sym) => {
@@ -4617,7 +4615,40 @@ function ChallengeWorkspace({
               mobilePanel === 'code' ? 'flex' : 'hidden'
             } lg:flex flex-col flex-1 min-h-[280px]`}
           >
-            <div className="bg-slate-900 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="px-3 pt-2 space-y-2">
+            <div role="status" aria-live="polite" className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+              <span>
+                {draftSyncStatus === 'loading' ? 'Verificando rascunho na nuvem...'
+                  : draftSyncStatus === 'saving' ? 'Salvando rascunho na nuvem...'
+                  : draftSyncStatus === 'saved' ? 'Rascunho sincronizado com a nuvem'
+                  : draftSyncStatus === 'offline' ? 'Sem sincronização: seu rascunho continua salvo neste dispositivo'
+                  : draftSyncStatus === 'conflict' ? 'Há versões diferentes deste rascunho'
+                  : currentUser ? 'Rascunho local aguardando sincronização' : 'Rascunho salvo neste dispositivo'}
+              </span>
+              {draftSyncStatus === 'offline' && currentUser && (
+                <button type="button" onClick={retryDraftLoad} className="text-emerald-300 hover:text-emerald-200 underline">
+                  Tentar sincronizar
+                </button>
+              )}
+            </div>
+            {draftConflict && (
+              <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-950/30 p-3 space-y-2">
+                <p className="text-xs text-amber-100">
+                  Este exercício foi editado em outro dispositivo. Nenhuma versão foi descartada. Escolha qual versão deseja manter.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={useCloudVersion} className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-white">
+                    Usar versão da nuvem
+                  </button>
+                  <button type="button" onClick={keepLocalVersion} className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white">
+                    Manter versão deste dispositivo
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-slate-900 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1 overflow-x-auto">
                 {fileNames.map((fname) => (
                   <button
