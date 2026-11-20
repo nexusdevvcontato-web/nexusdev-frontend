@@ -17,7 +17,9 @@ test('HTML preview is restricted by a deny-by-default CSP', () => {
   assert.match(appSource, /form-action 'none'/);
 });
 
-test('HTML test fixture sandbox does not enable scripts', () => {
+test('HTML preview and test fixture sandboxes do not enable scripts', () => {
+  assert.match(appSource, /sandbox=""/);
+  assert.doesNotMatch(appSource, /sandbox="[^"]*allow-scripts/);
   assert.match(appSource, /setAttribute\('sandbox', 'allow-same-origin'\)/);
   assert.doesNotMatch(appSource, /setAttribute\('sandbox', '[^']*allow-scripts/);
 });
