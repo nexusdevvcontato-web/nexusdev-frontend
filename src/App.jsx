@@ -882,6 +882,72 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
           }
         ]
       }
+
+    ],
+    additionalChallenges: [
+      {
+        id: 'mod-4-aula-2',
+        title: 'Criando uma Rota GET para Listar Produtos',
+        language: 'javascript',
+        targetFunction: 'listarProdutosController',
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '7 min',
+        theory: `Em uma API REST, o método GET é usado para consultar recursos. No Express, uma rota como \`app.get('/api/produtos', listarProdutosController)\` encaminha a requisição para um controller, que responde com status HTTP e JSON.`,
+        instructions: `Implemente listarProdutosController(req, res). Ela deve responder com status 200 e um array JSON com dois produtos: { id: 1, nome: 'Teclado' } e { id: 2, nome: 'Mouse' }. Use res.status(200).json([...]).`,
+        hint: "Encadeie res.status(200).json([...]) e retorne a resposta.",
+        files: {
+          'produtoController.js': `function listarProdutosController(req, res) {\n  // Responda com status 200 e dois produtos em JSON\n  \n}`,
+          'server.js': `// Exemplo de rota Express:\n// app.get('/api/produtos', listarProdutosController);\n`
+        },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Retorna status 200 e a lista de produtos', testFn: (fn, assert) => { let status = 0; let payload; const res = { status(code) { status = code; return this; }, json(data) { payload = data; return this; } }; fn({ query: {} }, res); assert.strictEqual(status, 200); assert.deepEqual(payload, [{ id: 1, nome: 'Teclado' }, { id: 2, nome: 'Mouse' }]); } },
+          { id: 't2', description: 'A resposta é um array JSON', testFn: (fn, assert) => { let payload; const res = { status() { return this; }, json(data) { payload = data; return this; } }; fn({}, res); assert.ok(Array.isArray(payload)); } }
+        ]
+      },
+      {
+        id: 'mod-4-aula-3',
+        title: 'Validando Dados Antes de Criar um Recurso',
+        language: 'javascript',
+        targetFunction: 'validarProduto',
+        defaultTraceArgs: [{ titulo: 'Teclado', preco: 120 }],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '6 min',
+        theory: `Uma API não deve confiar nos dados enviados pelo cliente. Antes de criar um recurso, valide os campos e seus tipos. Em Express, essa validação normalmente acontece no controller ou em um middleware dedicado.`,
+        instructions: `Implemente validarProduto(dados). Retorne true somente quando dados.titulo for uma string não vazia após trim() e dados.preco for um número finito maior que zero. Para qualquer entrada inválida, retorne false.`,
+        hint: 'Verifique se dados existe, se titulo.trim() não está vazio e se Number.isFinite(preco) e preco > 0.',
+        files: { 'validacao.js': `function validarProduto(dados) {\n  // Valide título e preço antes de aceitar a requisição\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Aceita título preenchido e preço positivo', testFn: (fn, assert) => assert.strictEqual(fn({ titulo: 'Teclado', preco: 120 }), true) },
+          { id: 't2', description: 'Rejeita título vazio', testFn: (fn, assert) => assert.strictEqual(fn({ titulo: '   ', preco: 120 }), false) },
+          { id: 't3', description: 'Rejeita preço zero, negativo ou não numérico', testFn: (fn, assert) => { assert.strictEqual(fn({ titulo: 'Mouse', preco: 0 }), false); assert.strictEqual(fn({ titulo: 'Mouse', preco: -1 }), false); assert.strictEqual(fn({ titulo: 'Mouse', preco: '50' }), false); } },
+          { id: 't4', description: 'Rejeita dados ausentes e preço não finito', testFn: (fn, assert) => { assert.strictEqual(fn(null), false); assert.strictEqual(fn({ titulo: 'Mouse', preco: Infinity }), false); } }
+        ]
+      },
+      {
+        id: 'mod-4-aula-4',
+        title: 'Padronizando Respostas de Erro da API',
+        language: 'javascript',
+        targetFunction: 'formatarErroApi',
+        defaultTraceArgs: [{ message: 'Produto não encontrado', code: 'NOT_FOUND' }],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '6 min',
+        theory: `Tratamento centralizado de erros ajuda a manter respostas consistentes. Uma API pode transformar erros internos em um objeto JSON previsível, sem expor stack traces ou detalhes sensíveis ao cliente.`,
+        instructions: `Implemente formatarErroApi(erro). Retorne um novo objeto com mensagem e codigo. Use erro.message quando for uma string não vazia; caso contrário, use 'Erro interno'. Use erro.code quando for uma string não vazia; caso contrário, use 'INTERNAL_ERROR'. Não inclua stack ou outras propriedades.`,
+        hint: "Valide message e code com typeof e trim(). Retorne somente { mensagem, codigo }.",
+        files: { 'errorHandler.js': `function formatarErroApi(erro) {\n  // Retorne somente mensagem e codigo seguros e padronizados\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Converte erro conhecido para o formato público', testFn: (fn, assert) => assert.deepEqual(fn({ message: 'Produto não encontrado', code: 'NOT_FOUND' }), { mensagem: 'Produto não encontrado', codigo: 'NOT_FOUND' }) },
+          { id: 't2', description: 'Usa valores padrão para campos ausentes', testFn: (fn, assert) => assert.deepEqual(fn({}), { mensagem: 'Erro interno', codigo: 'INTERNAL_ERROR' }) },
+          { id: 't3', description: 'Não expõe stack trace nem propriedades extras', testFn: (fn, assert) => assert.deepEqual(fn({ message: 'Falha', code: 'DB_ERROR', stack: 'segredo', internal: true }), { mensagem: 'Falha', codigo: 'DB_ERROR' }) },
+          { id: 't4', description: 'Ignora strings vazias e campos com tipo inválido', testFn: (fn, assert) => assert.deepEqual(fn({ message: '  ', code: 42 }), { mensagem: 'Erro interno', codigo: 'INTERNAL_ERROR' }) }
+        ]
+      }
     ]
   },
   {
