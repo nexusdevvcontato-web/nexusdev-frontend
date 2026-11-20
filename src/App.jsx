@@ -2268,47 +2268,75 @@ export default function App() {
   const [passwordResetMessage, setPasswordResetMessage] = useState('');
 
   const [cloudStatus, setCloudStatus] = useState('checking');
-  const [syncQueue, setSyncQueue] = useState(() => {
-    try {
-      const saved = localStorage.getItem('nexusdev_sync_queue');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const queueOwnerId = typeof currentUser?.id === 'string' && /^[a-f0-9]{24}$/i.test(currentUser.id)
+    ? currentUser.id
+    : null;
+  const [syncQueue, setSyncQueue] = useState([]);
+  const [loadedQueueOwner, setLoadedQueueOwner] = useState(null);
 
   useEffect(() => {
+    if (!queueOwnerId) {
+      setSyncQueue([]);
+      setLoadedQueueOwner(null);
+      return;
+    }
+
     try {
-      localStorage.setItem('nexusdev_sync_queue', JSON.stringify(syncQueue));
+      const saved = localStorage.getItem(`nexusdev_sync_queue_${queueOwnerId}`);
+      const parsed = saved ? JSON.parse(saved) : [];
+      const safeQueue = Array.isArray(parsed)
+        ? parsed.filter((item) =>
+            item && typeof item === 'object' &&
+            (item.type === 'complete' || item.type === 'certificate') &&
+            typeof item.id === 'string'
+          ).slice(0, 25)
+        : [];
+      setSyncQueue(safeQueue);
+    } catch {
+      setSyncQueue([]);
+    }
+    setLoadedQueueOwner(queueOwnerId);
+  }, [queueOwnerId]);
+
+  useEffect(() => {
+    if (!queueOwnerId || loadedQueueOwner !== queueOwnerId) return;
+    try {
+      localStorage.setItem(`nexusdev_sync_queue_${queueOwnerId}`, JSON.stringify(syncQueue.slice(0, 25)));
     } catch {}
-  }, [syncQueue]);
+  }, [queueOwnerId, loadedQueueOwner, syncQueue]);
 
   const enqueueSyncItem = (item) => {
+    if (!queueOwnerId || loadedQueueOwner !== queueOwnerId || !item || !['complete', 'certificate'].includes(item.type)) return;
     setSyncQueue((prev) => {
+      if (prev.length >= 25) return prev;
       const id = `${item.type}_${item.challengeId || 'cert'}_${Date.now()}`;
-      return [...prev, { ...item, id }];
+      return [...prev, { ...item, id }].slice(0, 25);
     });
     setCloudStatus('queued');
   };
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const pingAndFlush = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/health`, { cache: 'no-store' });
+        const res = await fetch(`${API_BASE_URL}/api/health`, { cache: 'no-store', signal: controller.signal });
         if (!res.ok) throw new Error('API indisponível');
         if (cancelled) return;
 
         setCloudStatus('online');
 
-        if (authToken && syncQueue.length > 0) {
+        if (authToken && queueOwnerId && loadedQueueOwner === queueOwnerId && syncQueue.length > 0) {
           const remaining = [];
           for (const item of syncQueue) {
+            if (cancelled || controller.signal.aborted) break;
             try {
+              let response;
               if (item.type === 'complete') {
-                await authenticatedFetch(`${API_BASE_URL}/api/progress/complete`, {
+                response = await authenticatedFetch(`${API_BASE_URL}/api/progress/complete`, {
                   method: 'POST',
+                  signal: controller.signal,
                   headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${authToken}`
@@ -2319,20 +2347,26 @@ export default function App() {
                   })
                 });
               } else if (item.type === 'certificate') {
-                await authenticatedFetch(`${API_BASE_URL}/api/certificates/issue`, {
+                response = await authenticatedFetch(`${API_BASE_URL}/api/certificates/issue`, {
                   method: 'POST',
+                  signal: controller.signal,
                   headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${authToken}`
                   },
                   body: JSON.stringify(item.payload || {})
                 });
+              } else {
+                remaining.push(item);
+                continue;
               }
+              if (!response.ok) remaining.push(item);
             } catch {
               remaining.push(item);
+              if (controller.signal.aborted) break;
             }
           }
-          if (!cancelled) {
+          if (!cancelled && !controller.signal.aborted) {
             setSyncQueue(remaining);
             setCloudStatus(remaining.length > 0 ? 'queued' : 'online');
           }
@@ -2350,10 +2384,11 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      controller.abort();
       clearInterval(interval);
       window.removeEventListener('online', pingAndFlush);
     };
-  }, [authToken, syncQueue]);
+  }, [authToken, queueOwnerId, loadedQueueOwner, syncQueue]);
 
   useEffect(() => {
     try {
