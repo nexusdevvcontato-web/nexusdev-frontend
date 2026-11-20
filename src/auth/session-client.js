@@ -63,14 +63,10 @@ async function performRefresh() {
 export function refreshSession() {
   if (refreshInFlight) return refreshInFlight;
   const run = async () => {
-    if (typeof navigator !== 'undefined' && navigator.locks?.request) {
-      return navigator.locks.request(REFRESH_LOCK_NAME, { mode: 'exclusive' }, performRefresh);
+    if (typeof navigator === 'undefined' || !navigator.locks?.request) {
+      throw new Error('Este navegador não oferece bloqueio entre abas para renovar a sessão com segurança.');
     }
-    // Without cross-tab locking, do not race rotating refresh tokens.
-    if (typeof window !== 'undefined' && typeof BroadcastChannel === 'undefined') {
-      throw new Error('Este navegador não oferece coordenação segura entre abas. Recarregue em uma única aba.');
-    }
-    return performRefresh();
+    return navigator.locks.request(REFRESH_LOCK_NAME, { mode: 'exclusive' }, performRefresh);
   };
   refreshInFlight = run().finally(() => { refreshInFlight = null; });
   return refreshInFlight;
