@@ -67,3 +67,10 @@ the legacy application is already compliant.
 - The hidden HTML test fixture uses an iframe sandbox that permits parent DOM inspection but does not grant script execution. The same restrictive CSP is applied to the fixture document.
 - Added Node built-in regression tests for the absence of dynamic JavaScript evaluation, the iframe/CSP restrictions, and fail-closed challenge behavior. Frontend CI runs `npm test` before `npm run build`.
 - This is a temporary safety restriction, not a completed code-execution feature. The separate runner remains undeployed and has no provisioned signing key; do not enable JavaScript verification, XP, or certificates based on client-side execution.
+
+## Frontend dependency security baseline
+
+- Frontend build dependencies were updated to `vite@6.4.6`, `@vitejs/plugin-react@4.3.4`, and `postcss@8.5.33`. The React plugin release supports Vite 6; the Vite 6.4.6 release is the patched Vite 6 line. The Node runtime requirement is recorded as `>=20.19.0`.
+- The lockfile was regenerated with npm 10.8.2, lockfile v3, and is committed with the manifest.
+- CI uses `npm ci`, runs the security regression tests, reports npm audit details, enforces `npm audit --audit-level=low`, then builds.
+- On the CI run for the refreshed lockfile, npm reported **0 vulnerabilities**, all four frontend security regression tests passed, and Vite completed the build successfully.
