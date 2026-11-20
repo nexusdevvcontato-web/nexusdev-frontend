@@ -2437,6 +2437,7 @@ export default function App() {
               try {
                 const apiRes = await fetch(`${API_BASE_URL}/api/auth/session/google`, {
                   method: 'POST',
+                  credentials: 'include',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ credential: response.credential })
                 });
@@ -2653,6 +2654,7 @@ export default function App() {
       const endpoint = authMode === 'register' ? '/api/auth/session/register' : '/api/auth/session/login';
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(authMode === 'register' ? { name: authForm.name.trim() } : {}),
@@ -4050,7 +4052,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
     setReauthSuccess('');
     setReauthProof(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/reauthenticate`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/auth/reauthenticate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -4079,7 +4081,7 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
     setSavingPreference(key);
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/privacy/preferences`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/privacy/preferences`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -5223,7 +5225,7 @@ function CapstoneSpecView({
     };
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/certificates/issue`, {
+      const res = await authenticatedFetch(`${API_BASE_URL}/api/certificates/issue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
