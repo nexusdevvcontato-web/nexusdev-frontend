@@ -37,3 +37,12 @@ test('rejects malformed and non-monotonic cloud revisions', () => {
   assert.throws(() => validateSavedDraftResponse({ saved: true, draft: { revision: 5 } }, 3));
   assert.throws(() => validateSavedDraftResponse({ saved: false, draft: { revision: 4 } }, 3));
 });
+
+
+test('rejects non-plain objects and prototype-sensitive file names', () => {
+  assert.equal(isValidDraftFiles(Object.create(null)), false);
+  assert.equal(isValidDraftFiles(new Date()), false);
+  for (const name of ['__proto__', 'prototype', 'constructor']) {
+    assert.equal(isValidDraftFiles({ [name]: 'x' }), false);
+  }
+});
