@@ -41,4 +41,4 @@ test('local drafts enforce the same per-file and aggregate byte limits as the AP
   assert.match(hook, /50 \* 1024/);
   assert.match(hook, /40 \* 1024/);
   assert.match(hook, /content\.includes\('\\\\u0000'\)/);
-});
+  assert.match(hook, /u0000-/);
