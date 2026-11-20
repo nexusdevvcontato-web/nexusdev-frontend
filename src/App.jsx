@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiFetch, API_BASE_URL } from './api/client.js';
-import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, clearLocalCsrfCookie } from './auth/session-client.js';
+import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, finalizeSessionLogout } from './auth/session-client.js';
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
 import {
@@ -3855,7 +3855,7 @@ export default function App() {
 
         {navState.activeView === 'sessions' && (
           <SessionDevicesView onBack={() => setActiveView('profile')} onLogoutAll={() => {
-            setSessionAccessToken(null); clearLocalCsrfCookie(); setAuthToken(''); setCurrentUser(null);
+            finalizeSessionLogout(); setAuthToken(''); setCurrentUser(null);
             setAuthMode('login'); setAuthError('Todas as sessões foram encerradas. Entre novamente para continuar.');
             setAuthModalOpen(true); setActiveView('home');
           }} />

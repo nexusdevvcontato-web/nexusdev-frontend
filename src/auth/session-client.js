@@ -122,6 +122,17 @@ export function clearLocalCsrfCookie() {
   document.cookie = '__Host-nexusdev_csrf=; Max-Age=0; Path=/; Secure; SameSite=Lax';
 }
 
+// Call only after the server has confirmed global session revocation.
+// Keep this tab locked against refresh and notify every other open tab.
+export function finalizeSessionLogout() {
+  logoutInProgress = true;
+  sessionEpoch += 1;
+  accessToken = null;
+  clearLocalCsrfCookie();
+  try { channel?.postMessage({ type: 'logout' }); } catch {}
+  notify({ type: 'logout' });
+}
+
 export async function logoutSession(token) {
   logoutInProgress = true;
   sessionEpoch += 1;
