@@ -1,3 +1,4 @@
+const MAX_FILES = 10;
 const MAX_FILE_BYTES = 50 * 1024;
 const MAX_TOTAL_BYTES = 40 * 1024;
 const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
@@ -6,7 +7,7 @@ const FORBIDDEN_CONTROLS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
 export function isValidDraftFiles(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const entries = Object.entries(value);
-  if (entries.length === 0) return false;
+  if (entries.length === 0 || entries.length > MAX_FILES) return false;
   let totalBytes = 0;
   for (const [name, content] of entries) {
     if (!FILE_NAME.test(name) || name.includes('..') || typeof content !== 'string' ||
