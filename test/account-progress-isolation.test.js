@@ -21,6 +21,6 @@ test('a restored refresh session must load /api/me before account-scoped storage
 
 test('profile restoration replaces client account identity only with a validated Mongo user id', () => {
   assert.match(source, /id: data\.id,[\s\S]*?provider: data\.provider \|\| prev\?\.provider \|\| 'email'/);
-  assert.match(source, /if \(Array\.isArray\(user\.completedIds\)\) setCompletedChallenges\(user\.completedIds\)/);
+  assert.match(source, /if \(Array\.isArray\(data\.completedIds\)\) \{\s*setCompletedChallenges\(data\.completedIds\)/);
   assert.match(source, /setSessionIdentityError\(true\);\s*setSessionIdentityResolved\(true\)/);
 });
