@@ -38,7 +38,9 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   const [retryCount, setRetryCount] = useState(0);
   const [retrySaveCount, setRetrySaveCount] = useState(0);
   const lastCloudContentRef = useRef(null);
-  const saveInFlightRef = useRef(false);
+  const saveInFlightRef = useRef(new Set());
+  const activeIdentityRef = useRef(identityKey);
+  activeIdentityRef.current = identityKey;
   const editGenerationRef = useRef(0);
 
   const setCurrentFiles = useCallback((nextFiles) => {
@@ -131,7 +133,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   }, [challengeId, initialFilesKey, storageKey, userId, retryCount, identityKey]);
 
   useEffect(() => {
-    if (!userId || !ready || loadedKey !== identityKey || !dirty || conflict || saveInFlightRef.current) return undefined;
+    if (!userId || !ready || loadedKey !== identityKey || !dirty || conflict || saveInFlightRef.current.has(identityKey)) return undefined;
     const snapshot = filesMap;
     const snapshotJson = JSON.stringify(snapshot);
     if (snapshotJson === lastCloudContentRef.current) {
@@ -140,8 +142,8 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
     }
 
     const timeout = setTimeout(async () => {
-      saveInFlightRef.current = true;
-      setStatus('saving');
+      saveInFlightRef.current.add(identityKey);
+      if (activeIdentityRef.current === identityKey) setStatus('saving');
       try {
         const response = await authenticatedFetch(\`\${API_BASE_URL}/api/lessons/\${encodeURIComponent(challengeId)}/draft\`, {
           method: 'PUT',
@@ -149,6 +151,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
           body: JSON.stringify({ files: snapshot, expectedRevision: revision })
         });
         const payload = await response.json().catch(() => ({}));
+        if (activeIdentityRef.current !== identityKey) return;
         if (response.status === 409 && payload?.conflict && payload?.draft) {
           setConflict({ localFiles: filesRef.current, remoteDraft: payload.draft });
           setStatus('conflict');
@@ -168,9 +171,9 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
           setStatus('local');
         }
       } catch {
-        setStatus('offline');
+        if (activeIdentityRef.current === identityKey) setStatus('offline');
       } finally {
-        saveInFlightRef.current = false;
+        saveInFlightRef.current.delete(identityKey);
       }
     }, 1000);
 
