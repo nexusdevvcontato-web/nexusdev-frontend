@@ -31,6 +31,8 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
   const [revision, setRevision] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [ready, setReady] = useState(false);
+  const [loadedKey, setLoadedKey] = useState(null);
+  const identityKey = `${userId || 'guest'}:${storagePrefix || 'none'}:${challengeId}`;
   const [status, setStatus] = useState(userId ? 'loading' : 'local');
   const [conflict, setConflict] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -56,11 +58,13 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
     setRevision(0);
     setDirty(false);
     setReady(false);
+    setLoadedKey(null);
     setConflict(null);
     lastCloudContentRef.current = null;
 
     if (!userId) {
       setReady(true);
+      setLoadedKey(identityKey);
       setStatus('local');
       return undefined;
     }
@@ -107,6 +111,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
         setStatus('local');
       }
       setReady(true);
+      setLoadedKey(identityKey);
     }).catch((error) => {
       if (!active || error?.name === 'AbortError') return;
       setReady(false);
@@ -117,10 +122,10 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
       active = false;
       controller.abort();
     };
-  }, [challengeId, initialFilesKey, storageKey, userId, retryCount]);
+  }, [challengeId, initialFilesKey, storageKey, userId, retryCount, identityKey]);
 
   useEffect(() => {
-    if (!userId || !ready || !dirty || conflict || saveInFlightRef.current) return undefined;
+    if (!userId || !ready || loadedKey !== identityKey || !dirty || conflict || saveInFlightRef.current) return undefined;
     const snapshot = filesMap;
     const snapshotJson = JSON.stringify(snapshot);
     if (snapshotJson === lastCloudContentRef.current) {
@@ -164,7 +169,7 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
     }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [challengeId, filesMap, revision, dirty, ready, userId, conflict, retrySaveCount]);
+  }, [challengeId, filesMap, revision, dirty, ready, loadedKey, identityKey, userId, conflict, retrySaveCount]);
 
   const useCloudVersion = useCallback(() => {
     if (!conflict?.remoteDraft || !isFileMap(conflict.remoteDraft.files)) return;
