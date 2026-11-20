@@ -8,7 +8,7 @@ const app = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
 test('cloud draft writes use optimistic revision checks and preserve conflicts', () => {
   assert.match(hook, /expectedRevision: revision/);
   assert.match(hook, /response\.status === 409/);
-  assert.match(hook, /setConflict\(\{ localFiles: filesRef\.current, remoteDraft: payload\.draft \}\)/);
+  assert.match(hook, /setConflict\(\{ localFiles: filesRef\.current, remoteDraft \}\)/);
   assert.match(hook, /saveInFlightRef\.current\.has\(identityKey\)/);
 });
 
