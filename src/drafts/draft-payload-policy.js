@@ -22,16 +22,18 @@ export function isValidDraftFiles(value) {
 export function validateRemoteDraft(payload) {
   const draft = payload?.draft;
   if (!draft || !Number.isSafeInteger(draft.revision) || draft.revision < 0 ||
-      !draft.files || typeof draft.files !== 'object' || Array.isArray(draft.files)) {
+      (draft.files !== null && (typeof draft.files !== 'object' || Array.isArray(draft.files)))) {
     throw new Error('draft_response_invalid');
   }
+  // The API represents a never-saved draft as { revision: 0, files: null }.
+  // Normalize that one documented empty state for the editor; reject null for persisted revisions.
   if (draft.revision > 0 && !isValidDraftFiles(draft.files)) {
     throw new Error('draft_response_invalid');
   }
-  if (draft.revision === 0 && Object.keys(draft.files).length !== 0) {
+  if (draft.revision === 0 && draft.files !== null && Object.keys(draft.files).length !== 0) {
     throw new Error('draft_response_invalid');
   }
-  return draft;
+  return { ...draft, files: draft.files || {} };
 }
 
 export function validateSavedDraftResponse(payload, expectedRevision) {
