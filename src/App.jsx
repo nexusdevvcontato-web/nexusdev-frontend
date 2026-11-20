@@ -1014,6 +1014,71 @@ Depois, clique no botão verde "Verificar Código" no topo para testar!`,
           }
         ]
       }
+
+    ],
+    additionalChallenges: [
+      {
+        id: 'mod-5-aula-2',
+        title: 'Modelando um Documento para MongoDB',
+        language: 'javascript',
+        targetFunction: 'criarDocumentoProduto',
+        defaultTraceArgs: [{ titulo: '  Teclado Mecânico  ', preco: 249.9, categoria: 'Periféricos', admin: true }],
+        difficulty: 'Iniciante',
+        xp: 50,
+        estimatedTime: '7 min',
+        theory: `MongoDB armazena registros como documentos BSON. Antes de persistir dados, a aplicação deve construir um documento com campos conhecidos, normalizar valores e descartar propriedades inesperadas enviadas pelo cliente.`,
+        instructions: `Implemente criarDocumentoProduto(dados). Retorne somente { titulo, preco, categoria, ativo }. titulo deve ser dados.titulo.trim(); preco deve ser copiado; categoria deve ser dados.categoria.trim() ou 'geral' quando ausente/vazia; ativo deve iniciar como true. Não copie campos extras como admin ou _id.`,
+        hint: "Monte um novo objeto usando apenas os quatro campos permitidos. Use trim() para titulo e categoria.",
+        files: { 'documento.js': `function criarDocumentoProduto(dados) {\n  // Crie um documento novo com somente os campos permitidos\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Normaliza título e mantém apenas campos permitidos', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: '  Teclado  ', preco: 249.9, categoria: ' Periféricos ', admin: true, _id: 'forjado' }), { titulo: 'Teclado', preco: 249.9, categoria: 'Periféricos', ativo: true }) },
+          { id: 't2', description: 'Usa categoria padrão quando ausente', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: 'Mouse', preco: 50 }), { titulo: 'Mouse', preco: 50, categoria: 'geral', ativo: true }) },
+          { id: 't3', description: 'Não altera o objeto recebido', testFn: (fn, assert) => { const entrada = { titulo: '  Monitor ', preco: 900 }; fn(entrada); assert.deepEqual(entrada, { titulo: '  Monitor ', preco: 900 }); } }
+        ]
+      },
+      {
+        id: 'mod-5-aula-3',
+        title: 'Criando uma Atualização Segura com $set',
+        language: 'javascript',
+        targetFunction: 'criarAtualizacaoProduto',
+        defaultTraceArgs: [{ titulo: 'Mouse', preco: 79, ativo: false, admin: true }],
+        difficulty: 'Intermediário',
+        xp: 50,
+        estimatedTime: '8 min',
+        theory: `Em atualizações MongoDB, o operador \`$set\` altera somente os campos informados. Nunca repasse diretamente todo o body do cliente para uma atualização: selecione explicitamente os campos que a API permite modificar.`,
+        instructions: `Implemente criarAtualizacaoProduto(dados). Retorne { $set: campos }. Copie apenas titulo (string não vazia após trim), preco (número finito maior que zero) e ativo (boolean). Ignore propriedades desconhecidas e não inclua campos inválidos. Se nenhum campo permitido for válido, retorne { $set: {} }.`,
+        hint: 'Crie um objeto vazio, valide cada campo separadamente e retorne { $set: atualizacao }.',
+        files: { 'atualizacao.js': `function criarAtualizacaoProduto(dados) {\n  // Construa $set usando somente campos permitidos e válidos\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Permite atualizar somente campos válidos', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: '  Mouse Gamer ', preco: 120, ativo: false, admin: true }), { $set: { titulo: 'Mouse Gamer', preco: 120, ativo: false } }) },
+          { id: 't2', description: 'Ignora valores inválidos e campos desconhecidos', testFn: (fn, assert) => assert.deepEqual(fn({ titulo: ' ', preco: -1, ativo: 'sim', role: 'admin' }), { $set: {} }) },
+          { id: 't3', description: 'Aceita atualização parcial', testFn: (fn, assert) => assert.deepEqual(fn({ ativo: true }), { $set: { ativo: true } }) },
+          { id: 't4', description: 'Não altera os dados de entrada', testFn: (fn, assert) => { const entrada = { titulo: 'Novo', admin: false }; fn(entrada); assert.deepEqual(entrada, { titulo: 'Novo', admin: false }); } }
+        ]
+      },
+      {
+        id: 'mod-5-aula-4',
+        title: 'Validando Dados de Cadastro com Segurança',
+        language: 'javascript',
+        targetFunction: 'validarCadastroUsuario',
+        defaultTraceArgs: [{ nome: 'Ana Silva', email: 'ana@exemplo.com', senha: 'senha-forte-123' }],
+        difficulty: 'Intermediário',
+        xp: 50,
+        estimatedTime: '8 min',
+        theory: `Valide os dados no servidor antes de criar uma conta. Uma senha forte deve ter tamanho mínimo adequado; o e-mail deve ter formato plausível e o nome não pode estar vazio. A senha nunca deve ser armazenada em texto puro: a aplicação real deve gerar hash com bcrypt antes de persistir.`,
+        instructions: `Implemente validarCadastroUsuario(dados). Retorne true somente se nome for uma string não vazia após trim(), email for uma string com formato local@dominio.extensão e senha for uma string entre 8 e 128 caracteres. Não transforme a senha nem a persista nesta função.`,
+        hint: 'Valide tipos e comprimentos antes de usar uma expressão regular simples para o e-mail.',
+        files: { 'cadastro.js': `function validarCadastroUsuario(dados) {\n  // Valide nome, email e senha no servidor\n  \n}` },
+        communityPosts: [],
+        tests: [
+          { id: 't1', description: 'Aceita cadastro com campos válidos', testFn: (fn, assert) => assert.strictEqual(fn({ nome: 'Ana Silva', email: 'ana@exemplo.com', senha: 'senha-forte-123' }), true) },
+          { id: 't2', description: 'Rejeita nome vazio e e-mail inválido', testFn: (fn, assert) => { assert.strictEqual(fn({ nome: ' ', email: 'ana@exemplo.com', senha: '12345678' }), false); assert.strictEqual(fn({ nome: 'Ana', email: 'email-invalido', senha: '12345678' }), false); } },
+          { id: 't3', description: 'Rejeita senha curta ou maior que 128 caracteres', testFn: (fn, assert) => { assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: '1234567' }), false); assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: 'x'.repeat(129) }), false); } },
+          { id: 't4', description: 'Rejeita dados ausentes ou tipos incorretos', testFn: (fn, assert) => { assert.strictEqual(fn(null), false); assert.strictEqual(fn({ nome: 'Ana', email: 'ana@exemplo.com', senha: 12345678 }), false); } }
+        ]
+      }
     ]
   },
   {
