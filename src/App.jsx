@@ -2620,6 +2620,7 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (!userStoragePrefix) return;
     try {
       const savedChecks = localStorage.getItem(`${userStoragePrefix}_cap_checks`);
       setCapstoneChecks(savedChecks ? JSON.parse(savedChecks) : {});
