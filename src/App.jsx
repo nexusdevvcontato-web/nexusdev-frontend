@@ -2638,16 +2638,23 @@ export default function App() {
   }, [capstoneSubmission, userStoragePrefix]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('passwordResetToken');
+    const queryParams = new URLSearchParams(window.location.search);
+    const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const token = fragmentParams.get('passwordResetToken') || queryParams.get('passwordResetToken');
     if (token) {
       setPasswordResetToken(token);
       setAuthMode('reset');
       setAuthModalOpen(true);
       setPasswordResetMessage('');
-      params.delete('passwordResetToken');
-      const query = params.toString();
-      window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
+      queryParams.delete('passwordResetToken');
+      fragmentParams.delete('passwordResetToken');
+      const query = queryParams.toString();
+      const fragment = fragmentParams.toString();
+      window.history.replaceState(
+        {},
+        '',
+        window.location.pathname + (query ? `?${query}` : '') + (fragment ? `#${fragment}` : '')
+      );
     }
   }, []);
 
