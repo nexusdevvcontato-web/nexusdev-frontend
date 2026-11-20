@@ -51,8 +51,8 @@ test('failed cloud reads keep the local account draft visible without auto-overw
 
 test('malformed persisted cloud revisions are validated by a dedicated policy', async () => {
   const policy = await readFile(new URL('../src/drafts/draft-payload-policy.js', import.meta.url), 'utf8');
-  assert.match(hook, /validateRemoteDraft\\(payload\\)/);
-  assert.match(policy, /draft\\.revision > 0 && !isValidDraftFiles\\(draft\\.files\\)/);
-  assert.match(policy, /draft\\.revision === 0 && Object\\.keys\\(draft\\.files\\)\\.length !== 0/);
+  assert.match(hook, /validateRemoteDraft\(payload\)/);
+  assert.match(policy, /draft\.revision > 0 && !isValidDraftFiles\(draft\.files\)/);
+  assert.match(policy, /draft\.revision === 0 && Object\.keys\(draft\.files\)\.length !== 0/);
   assert.match(hook, /failed read must never trigger an overwrite attempt/);
 });
