@@ -28,3 +28,11 @@ test('refresh cannot start while logout is being processed', () => {
   const body = source.slice(start, end);
   assert.match(body, /if \(logoutInProgress\) return Promise\.resolve\(null\)/);
 });
+
+test('refresh and logout resolve their endpoints through the authenticated API URL policy', () => {
+  assert.match(source, /function sessionApiUrl\(path\)/);
+  assert.match(source, /resolveAuthenticatedApiUrl\(path/);
+  assert.match(source, /fetch\(sessionApiUrl\('\/api\/auth\/session\/refresh'\)/);
+  assert.match(source, /fetch\(sessionApiUrl\('\/api\/auth\/session\/logout'\)/);
+  assert.doesNotMatch(source, /fetch\(\x60\$\{API_BASE_URL\}\/api\/auth\/session\//);
+});
