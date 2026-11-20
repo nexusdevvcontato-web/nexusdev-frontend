@@ -6,10 +6,13 @@ on:
       - rebuild/v2-security
     paths:
       - package.json
-      - .github/workflows/generate-lockfile.yml
 
 permissions:
   contents: write
+
+concurrency:
+  group: frontend-lockfile-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   lockfile:
