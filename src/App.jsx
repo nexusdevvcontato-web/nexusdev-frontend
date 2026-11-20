@@ -2685,7 +2685,9 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
-  const markChallengeComplete = (challengeId, filesMap = null) => {
+  const markChallengeComplete = (challengeId) => {
+    // Local lesson progress is device-local until the trusted runner can issue a proof.
+    // Never queue or send an unverified completion to the XP endpoint.
     setCompletedChallenges((prev) => {
       if (prev.includes(challengeId)) return prev;
       setStreakData((s) => {
@@ -2699,26 +2701,6 @@ export default function App() {
       });
       return [...prev, challengeId];
     });
-
-    if (authToken) {
-      fetch(`${API_BASE_URL}/api/progress/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ challengeId, files: filesMap || {} })
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Falha no sync');
-          setCloudStatus('online');
-        })
-        .catch(() => {
-          enqueueSyncItem({ type: 'complete', challengeId, files: filesMap || {} });
-        });
-    } else {
-      enqueueSyncItem({ type: 'complete', challengeId, files: filesMap || {} });
-    }
   };
 
   const toggleModuleExpand = (modId) => {
@@ -4841,54 +4823,43 @@ function CapstoneSpecView({
       setFormError('Informe o nome completo que aparecerá no certificado.');
       return;
     }
+    if (!authToken) {
+      setFormError('Entre na sua conta para solicitar a emissão do certificado oficial.');
+      return;
+    }
 
     setSubmitting(true);
-    const cleanPrefix = studentName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'DEV';
-    const localCode =
-      submission.verificationCode ||
-      `NXD-2026-${cleanPrefix}-${String(completedChallengesCount).padStart(3, '0')}-${Math.floor(
-        1000 + Math.random() * 9000
-      )}`;
-
     const payload = {
       studentName,
       githubUrl: submission.githubUrl.trim(),
       liveUrl: submission.liveUrl.trim()
     };
 
-    if (authToken) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/certificates/issue`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`
-          },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        setSubmitting(false);
-
-        if (res.ok && data?.code) {
-          onUpdateSubmission({
-            ...submission,
-            studentName: data.studentName || studentName,
-            submitted: true,
-            verificationCode: data.code
-          });
-          return;
-        }
-      } catch {}
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/certificates/issue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.code) {
+        setFormError(data.error || 'O servidor não confirmou a emissão do certificado.');
+        return;
+      }
+      onUpdateSubmission({
+        ...submission,
+        studentName: data.studentName || studentName,
+        submitted: true,
+        verificationCode: data.code
+      });
+    } catch {
+      setFormError('Não foi possível conectar à API. Nenhum certificado foi emitido.');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    onEnqueueSync({ type: 'certificate', payload });
-    onUpdateSubmission({
-      ...submission,
-      studentName,
-      submitted: true,
-      verificationCode: localCode
-    });
   };
 
   const handleCopyCode = () => {
