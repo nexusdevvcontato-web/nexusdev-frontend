@@ -130,7 +130,13 @@ export function useLessonDraftSync({ challengeId, initialFiles, storagePrefix, u
       setLoadedKey(identityKey);
     }).catch((error) => {
       if (!active || error?.name === 'AbortError') return;
-      setReady(false);
+      // Keep the per-account local backup visible when the cloud copy is
+      // unavailable or malformed. Do not mark it dirty automatically: a
+      // failed read must never trigger an overwrite attempt against unknown
+      // remote state.
+      setReady(true);
+      setLoadedKey(identityKey);
+      setDirty(false);
       setStatus('offline');
     });
 
