@@ -27,5 +27,5 @@
   "engines": {
     "node": ">=20.19.0"
   },
-  "description": "NexusDev interactive programming education platform"
+  "description": "Free interactive programming education platform — NexusDev"
 }
