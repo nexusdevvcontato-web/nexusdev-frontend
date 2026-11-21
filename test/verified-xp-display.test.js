@@ -15,3 +15,10 @@ test('local challenge completion is not presented as awarded server XP', () => {
   assert.match(source, /Aula concluída neste dispositivo/);
   assert.match(source, /XP será liberado após validação segura/);
 });
+
+test('device-local activity is not labelled as official cloud progress', () => {
+  assert.match(source, /laboratórios marcados neste dispositivo/);
+  assert.match(source, /sequência local/);
+  assert.match(source, /conclusões locais ainda não concedem XP/);
+  assert.match(source, /Certificado emitido após validação da conclusão pelo servidor/);
+});
