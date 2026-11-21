@@ -2255,6 +2255,7 @@ export default function App() {
 
     setSessionIdentityResolved(false);
     setSessionIdentityError(false);
+    setCurrentUser(null);
     authenticatedFetch(`${API_BASE_URL}/api/me`, {
       headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
       cache: 'no-store'
@@ -2326,6 +2327,7 @@ export default function App() {
                   setCurrentUser({
                     id: String(apiData.user.id || ''),
                     name: apiData.user.name,
+                    xp: Number.isSafeInteger(apiData.user.xp) && apiData.user.xp >= 0 ? apiData.user.xp : 0,
                     email: apiData.user.email,
                     avatar: apiData.user.avatar || '',
                     provider: 'google',
@@ -2661,6 +2663,7 @@ export default function App() {
       setCurrentUser({
         id: String(data.user.id || ''),
         name: data.user.name,
+        xp: Number.isSafeInteger(data.user.xp) && data.user.xp >= 0 ? data.user.xp : 0,
         email: data.user.email,
         avatar: data.user.avatar || '',
         provider: 'email',
