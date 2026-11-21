@@ -2735,7 +2735,7 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
-  const markChallengeComplete = async (challengeId, filesMap) => {
+  const markChallengeComplete = async (challengeId, filesMap, { allowLocalFallback = true } = {}) => {
     const markLocalOnly = () => {
       setCompletedChallenges((prev) => {
         if (prev.includes(challengeId)) return prev;
@@ -2771,7 +2771,7 @@ export default function App() {
           }));
           return { verified: true };
         }
-        markLocalOnly();
+        if (allowLocalFallback) markLocalOnly();
         return {
           verified: false,
           message: response.status === 400 || response.status === 422
@@ -2779,12 +2779,12 @@ export default function App() {
             : (data.error || 'Não foi possível validar a conclusão no servidor.')
         };
       } catch {
-        markLocalOnly();
+        if (allowLocalFallback) markLocalOnly();
         return { verified: false, message: 'Sem conexão com o servidor: conclusão salva apenas neste dispositivo.' };
       }
     }
 
-    markLocalOnly();
+    if (allowLocalFallback) markLocalOnly();
     return { verified: false, message: 'Entre na sua conta para validar a conclusão e receber XP oficial.' };
   };
 
@@ -4473,7 +4473,7 @@ function ChallengeWorkspace({
       setAllPassed(false);
       setBottomTab('tests');
       setMobilePanel('output');
-      const validation = await onComplete(challenge.id, filesMap);
+      const validation = await onComplete(challenge.id, filesMap, { allowLocalFallback: false });
       const verified = validation?.verified === true;
       setTestResults([{
         id: 'server-validation',
