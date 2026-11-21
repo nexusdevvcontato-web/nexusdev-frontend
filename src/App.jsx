@@ -2775,7 +2775,9 @@ export default function App() {
         return {
           verified: false,
           message: response.status === 400 || response.status === 422
-            ? 'Esta aula foi salva neste dispositivo, mas ainda não passou na validação oficial do servidor.'
+            ? (allowLocalFallback
+              ? 'Esta aula foi salva neste dispositivo, mas ainda não passou na validação oficial do servidor.'
+              : 'A solução não passou na validação oficial do servidor; nenhum XP foi concedido.')
             : (data.error || 'Não foi possível validar a conclusão no servidor.')
         };
       } catch {
