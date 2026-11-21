@@ -18,7 +18,9 @@ test('account-sensitive application tree fails closed on identity or storage err
   assert.ok(source.includes('{storageIdentityReady ? ('));
   assert.ok(source.includes('Preparando os dados deste perfil com segurança'));
   assert.ok(source.includes('Não foi possível ler os dados locais deste perfil com segurança.'));
-  assert.ok(source.includes('setCompletedChallenges([]);'));
+  assert.ok(source.includes('setCompletedChallenges(mergeCompletedProgress({'));
+  assert.ok(source.includes('localCompleted: [],'));
+  assert.ok(source.includes('serverCompleted: currentUser?.completedIds,'));
   assert.ok(source.includes('setCommunityXP(0);'));
   assert.ok(source.includes('setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });'));
   assert.ok(source.includes('setStorageLoadError(true);'));
