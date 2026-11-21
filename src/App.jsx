@@ -1074,7 +1074,7 @@ function buildFull140PerModuleCurriculum(baseModules) {
       return { ...mod, totalSyllabusLessons: 10 };
     }
 
-    const list = [...mod.challenges];
+    const list = [...mod.challenges, ...(Array.isArray(mod.additionalChallenges) ? mod.additionalChallenges : [])];
     let idx = list.length + 1;
 
     while (list.length < TARGET_PER_MODULE) {
