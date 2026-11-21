@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateStoredProgress } from '../src/storage/progress-storage-policy.js';
+import { validateStoredProgress, mergeCompletedProgress } from '../src/storage/progress-storage-policy.js';
 
 const valid = {
   completed: ['html-00-o-que-e-web', 'html-01-subtitulo-h2'],
@@ -39,4 +39,16 @@ test('supports older streak records without todayCompleted', () => {
     streak: { count: 2, lastActiveDate: '2026-11-19' }
   });
   assert.equal(result.streak.todayCompleted, 0);
+});
+
+
+test('merges verified server completions with local-only progress without trusting unknown IDs', () => {
+  assert.deepEqual(
+    mergeCompletedProgress({
+      localCompleted: ['html-00-o-que-e-web', 'html-01-subtitulo-h2'],
+      serverCompleted: ['html-00-o-que-e-web', 'forged-lesson-id', 42],
+      allowedChallengeIds: valid.allowedChallengeIds
+    }),
+    valid.completed
+  );
 });
