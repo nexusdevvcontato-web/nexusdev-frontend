@@ -2735,22 +2735,57 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
-  const markChallengeComplete = (challengeId) => {
-    // Local lesson progress is device-local until the trusted runner can issue a proof.
-    // Never queue or send an unverified completion to the XP endpoint.
-    setCompletedChallenges((prev) => {
-      if (prev.includes(challengeId)) return prev;
-      setStreakData((s) => {
-        const nextToday = s.todayCompleted + 1;
-        const bumpedStreak = nextToday === 2 ? s.count + 1 : s.count;
-        return {
-          count: bumpedStreak,
-          todayCompleted: nextToday,
-          lastActiveDate: todayStr
-        };
+  const markChallengeComplete = async (challengeId, filesMap) => {
+    const markLocalOnly = () => {
+      setCompletedChallenges((prev) => {
+        if (prev.includes(challengeId)) return prev;
+        setStreakData((s) => {
+          const nextToday = s.todayCompleted + 1;
+          const bumpedStreak = nextToday === 2 ? s.count + 1 : s.count;
+          return { count: bumpedStreak, todayCompleted: nextToday, lastActiveDate: todayStr };
+        });
+        return [...prev, challengeId];
       });
-      return [...prev, challengeId];
-    });
+    };
+
+    if (authToken && filesMap && typeof filesMap === 'object') {
+      try {
+        const response = await authenticatedFetch(`${API_BASE_URL}/api/progress/complete`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({ challengeId, files: filesMap })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && Array.isArray(data.completedIds) && Number.isInteger(data.xp)) {
+          setCurrentUser((prev) => prev ? { ...prev, xp: data.xp, completedIds: data.completedIds } : prev);
+          setCompletedChallenges((prev) => Array.from(new Set([...prev, ...data.completedIds])));
+          setStreakData((s) => ({
+            ...s,
+            count: Number.isInteger(data.streak) ? data.streak : s.count,
+            todayCompleted: s.todayCompleted + 1,
+            lastActiveDate: todayStr
+          }));
+          return { verified: true };
+        }
+        markLocalOnly();
+        return {
+          verified: false,
+          message: response.status === 400 || response.status === 422
+            ? 'Esta aula foi salva neste dispositivo, mas ainda não passou na validação oficial do servidor.'
+            : (data.error || 'Não foi possível validar a conclusão no servidor.')
+        };
+      } catch {
+        markLocalOnly();
+        return { verified: false, message: 'Sem conexão com o servidor: conclusão salva apenas neste dispositivo.' };
+      }
+    }
+
+    markLocalOnly();
+    return { verified: false, message: 'Entre na sua conta para validar a conclusão e receber XP oficial.' };
   };
 
   const toggleModuleExpand = (modId) => {
@@ -4432,17 +4467,21 @@ function ChallengeWorkspace({
     return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><style>${cssPart}</style></head><body>${htmlPart}</body></html>`;
   }, [challenge.language, filesMap]);
 
-  const runTests = () => {
+  const runTests = async () => {
     if (challenge.language !== 'html') {
-      setTestResults([{
-        id: 'isolated-runner-unavailable',
-        description: 'Execução JavaScript isolada',
-        passed: false,
-        error: 'A execução foi temporariamente desativada para proteger sua conta. O executor isolado ainda não está implantado.'
-      }]);
+      setTestResults([{ id: 'server-validation', description: 'Validação oficial do servidor', passed: false, error: 'Validando a solução com os testes confiáveis do servidor...' }]);
       setAllPassed(false);
       setBottomTab('tests');
       setMobilePanel('output');
+      const validation = await onComplete(challenge.id, filesMap);
+      const verified = validation?.verified === true;
+      setTestResults([{
+        id: 'server-validation',
+        description: 'Validação oficial do servidor',
+        passed: verified,
+        ...(verified ? {} : { error: validation?.message || 'A solução ainda não foi validada oficialmente.' })
+      }]);
+      setAllPassed(verified);
       return;
     }
 
@@ -4505,7 +4544,16 @@ function ChallengeWorkspace({
     setMobilePanel('output');
 
     if (passedAll) {
-      onComplete(challenge.id, filesMap);
+      const validation = await onComplete(challenge.id, filesMap);
+      if (validation?.verified !== true) {
+        setTestResults((prev) => [...prev, {
+          id: 'server-validation',
+          description: 'XP oficial do servidor',
+          passed: false,
+          error: validation?.message || 'Conclusão registrada apenas neste dispositivo; XP oficial não foi concedido.'
+        }]);
+        setAllPassed(false);
+      }
     }
   };
 
