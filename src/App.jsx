@@ -2450,7 +2450,8 @@ export default function App() {
       setCompletedChallenges(mergeCompletedProgress({
         localCompleted: storedProgress.completed,
         serverCompleted: currentUser?.completedIds,
-        allowedChallengeIds: allChallenges.map((challenge) => challenge.id)\n      }));
+        allowedChallengeIds: allChallenges.map((challenge) => challenge.id)
+      }));
       setCommunityXP(storedProgress.communityXp);
       if (storedProgress.streak.lastActiveDate !== todayStr) {
         const yesterday = new Date(`${todayStr}T00:00:00.000Z`);
@@ -2467,7 +2468,11 @@ export default function App() {
       setLoadedStoragePrefix(userStoragePrefix);
       setStorageLoadError(false);
     } catch {
-      setCompletedChallenges([]);
+      setCompletedChallenges(mergeCompletedProgress({
+        localCompleted: [],
+        serverCompleted: currentUser?.completedIds,
+        allowedChallengeIds: allChallenges.map((challenge) => challenge.id)
+      }));
       setCommunityXP(0);
       setStreakData({ count: 1, todayCompleted: 0, lastActiveDate: todayStr });
       setStorageLoadError(true);
