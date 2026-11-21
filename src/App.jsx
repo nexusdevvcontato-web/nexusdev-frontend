@@ -2925,11 +2925,11 @@ export default function App() {
             </div>
 
             <div
-              title={`Meta diária: ${Math.min(streakData.todayCompleted, 2)}/2 aulas hoje`}
+              title={`Sequência local neste dispositivo. Meta diária: ${Math.min(streakData.todayCompleted, 2)}/2 aulas hoje`}
               className={`items-center gap-1.5 bg-orange-950/40 px-2.5 py-1.5 rounded-xl border border-orange-500/30 text-xs ${storageIdentityReady ? 'hidden md:flex' : 'hidden'}`}
             >
               <Flame className="w-4 h-4 text-orange-400 fill-orange-400" />
-              <span className="font-bold text-orange-300">{streakData.count}d</span>
+              <span className="font-bold text-orange-300">{streakData.count}d local</span>
               <span className="text-[10px] text-orange-200/70 font-mono">
                 ({Math.min(streakData.todayCompleted, 2)}/2)
               </span>
@@ -3030,7 +3030,7 @@ export default function App() {
                   {authMode === 'login' ? 'Entrar no NexusDev' : authMode === 'register' ? 'Criar Conta na Nuvem' : authMode === 'forgot' ? 'Recuperar senha' : 'Criar nova senha'}
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Sincronize seu XP, ofensiva diária, ranking e certificados
+                  Acesse seu XP validado, ranking e certificados oficiais. As conclusões locais ainda não concedem XP.
                 </p>
               </div>
             </div>
@@ -3626,7 +3626,7 @@ export default function App() {
                   Trilha Completa — {totalSyllabusCount} Aulas
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-400">
-                  {completedCount} de {totalInteractiveChallenges} laboratórios concluídos ({overallPercentage}%) • {totalXP} XP
+                  {completedCount} de {totalInteractiveChallenges} laboratórios marcados neste dispositivo ({overallPercentage}%) • {totalXP} XP validado
                 </p>
               </div>
               <button
@@ -5358,7 +5358,7 @@ function CapstoneSpecView({
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold text-white">{submission.studentName}</h3>
               <p className="text-xs sm:text-sm text-slate-300">
-                Concluiu {completedChallengesCount} de {totalChallengesCount} laboratórios práticos na Formação Full-Stack NexusDev.
+                Certificado emitido após validação da conclusão pelo servidor NexusDev.
               </p>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-2">
                 <span className="px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-300">
@@ -5632,7 +5632,7 @@ function StudentProfileView({
             <div className="flex items-center gap-3 mt-1.5 text-xs font-mono">
               <span className="text-amber-300">{totalXP} XP</span>
               <span className="text-emerald-400">Nível {studentLevel}</span>
-              <span className="text-orange-300">{streakCount}d ofensiva</span>
+              <span className="text-orange-300">{streakCount}d de sequência local</span>
             </div>
           </div>
         </div>
