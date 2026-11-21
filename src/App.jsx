@@ -3859,7 +3859,7 @@ export default function App() {
                                       <span>•</span>
                                       <span>{ch.difficulty}</span>
                                       <span>•</span>
-                                      <span className="text-amber-400 font-mono">Concluída localmente</span>
+                                      {currentUser?.completedIds?.includes(ch.id) ? <span className="text-emerald-400 font-mono">Concluída • XP validado</span> : <span className="text-amber-400 font-mono">Concluída localmente</span>}
                                     </div>
                                   </div>
                                 </div>
