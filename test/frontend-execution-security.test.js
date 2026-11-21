@@ -26,9 +26,9 @@ test('HTML preview and test fixture sandboxes do not enable scripts', () => {
 });
 
 test('JavaScript lessons use the trusted server evaluator without browser-side dynamic execution', () => {
-  assert.match(appSource, /api\\/progress\\/complete/);
+  assert.match(appSource, /api\/progress\/complete/);
   assert.match(appSource, /Validação oficial do servidor/);
   assert.match(appSource, /markChallengeComplete = async/);
-  assert.doesNotMatch(appSource, /\\bnew\\s+Function\\s*\\(/);
-  assert.doesNotMatch(appSource, /\\beval\\s*\\(/);
+  assert.doesNotMatch(appSource, /\bnew\s+Function\s*\(/);
+  assert.doesNotMatch(appSource, /\beval\s*\(/);
 });
