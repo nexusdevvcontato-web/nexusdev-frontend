@@ -8,7 +8,6 @@ test('student JavaScript is never dynamically evaluated in the app origin', () =
   assert.doesNotMatch(appSource, /\bnew\s+Function\s*\(/);
   assert.doesNotMatch(appSource, /\beval\s*\(/);
   assert.doesNotMatch(appSource, /runDynamicMemoryInspector/);
-  assert.match(appSource, /isolated-runner-unavailable/);
   assert.match(appSource, /Inspetor temporariamente indisponível/);
 });
 
@@ -26,6 +25,10 @@ test('HTML preview and test fixture sandboxes do not enable scripts', () => {
   assert.doesNotMatch(appSource, /setAttribute\('sandbox', '[^']*allow-scripts/);
 });
 
-test('JavaScript challenges fail closed while the isolated runner is unavailable', () => {
-  assert.match(appSource, /if \(challenge\.language !== 'html'\)[\s\S]{0,500}setAllPassed\(false\)/);
+test('JavaScript lessons use the trusted server evaluator without browser-side dynamic execution', () => {
+  assert.match(appSource, /api\\/progress\\/complete/);
+  assert.match(appSource, /Validação oficial do servidor/);
+  assert.match(appSource, /markChallengeComplete = async/);
+  assert.doesNotMatch(appSource, /\\bnew\\s+Function\\s*\\(/);
+  assert.doesNotMatch(appSource, /\\beval\\s*\\(/);
 });
