@@ -2445,8 +2445,11 @@ export default function App() {
       setCompletedChallenges(storedProgress.completed);
       setCommunityXP(storedProgress.communityXp);
       if (storedProgress.streak.lastActiveDate !== todayStr) {
+        const yesterday = new Date(`${todayStr}T00:00:00.000Z`);
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+        const wasActiveYesterday = storedProgress.streak.lastActiveDate === yesterday.toISOString().slice(0, 10);
         setStreakData({
-          count: storedProgress.streak.count,
+          count: wasActiveYesterday ? storedProgress.streak.count : 1,
           todayCompleted: 0,
           lastActiveDate: todayStr
         });
