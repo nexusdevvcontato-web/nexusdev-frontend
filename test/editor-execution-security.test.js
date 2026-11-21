@@ -7,9 +7,10 @@ const app = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
 test('JavaScript lessons are evaluated by the authenticated API, not dynamically executed in the browser', () => {
   assert.match(app, /const runTests = async/);
   assert.match(app, /Validação oficial do servidor/);
-  assert.match(app, /onComplete\(challenge\.id, filesMap\)/);
+  assert.match(app, /onComplete\(challenge\.id, filesMap, \{ allowLocalFallback: false \}\)/);
   assert.match(app, /api\/progress\/complete/);
-  assert.match(app, /markChallengeComplete = async \(challengeId, filesMap\)/);
+  assert.match(app, /markChallengeComplete = async \(challengeId, filesMap,/);
+  assert.match(app, /allowLocalFallback: false/);
 });
 
 test('HTML exercise previews cannot execute scripts or make network requests', () => {
