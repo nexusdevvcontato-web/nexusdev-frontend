@@ -29,3 +29,14 @@ export function validateStoredProgress({ completed, communityXp, streak, allowed
     streak: { count, todayCompleted, lastActiveDate: streak.lastActiveDate }
   };
 }
+
+
+export function mergeCompletedProgress({ localCompleted, serverCompleted, allowedChallengeIds }) {
+  if (!Array.isArray(allowedChallengeIds)) throw new TypeError('Catálogo de aulas inválido.');
+  const allowedIds = new Set(allowedChallengeIds);
+  const local = Array.isArray(localCompleted) ? localCompleted : [];
+  const server = Array.isArray(serverCompleted) ? serverCompleted : [];
+  return [...new Set([...local, ...server].filter(
+    (id) => typeof id === 'string' && allowedIds.has(id)
+  ))];
+}
