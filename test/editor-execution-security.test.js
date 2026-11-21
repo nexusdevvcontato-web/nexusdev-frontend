@@ -4,13 +4,12 @@ import { readFile } from 'node:fs/promises';
 
 const app = await readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
 
-test('JavaScript exercises fail closed until the isolated runner is available', () => {
-  assert.match(
-    app,
-    /const runTests = \(\) => \{\s*if \(challenge\.language !== 'html'\) \{\s*setTestResults\(\[\{\s*id: 'isolated-runner-unavailable'/
-  );
-  assert.match(app, /A execução foi temporariamente desativada para proteger sua conta/);
-  assert.match(app, /O executor isolado ainda não está implantado/);
+test('JavaScript lessons are evaluated by the authenticated API, not dynamically executed in the browser', () => {
+  assert.match(app, /const runTests = async/);
+  assert.match(app, /Validação oficial do servidor/);
+  assert.match(app, /onComplete\(challenge\.id, filesMap\)/);
+  assert.match(app, /api\/progress\/complete/);
+  assert.match(app, /markChallengeComplete = async \(challengeId, filesMap\)/);
 });
 
 test('HTML exercise previews cannot execute scripts or make network requests', () => {
