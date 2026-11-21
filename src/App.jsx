@@ -2272,7 +2272,8 @@ export default function App() {
         setCurrentUser((prev) => ({
           id: data.id,
           name: data.name,
-          xp: Number.isSafeInteger(data.xp) && data.xp >= 0 ? data.xp : 0,\n          completedIds: Array.isArray(data.completedIds) ? data.completedIds : [],
+          xp: Number.isSafeInteger(data.xp) && data.xp >= 0 ? data.xp : 0,
+          completedIds: Array.isArray(data.completedIds) ? data.completedIds : [],
           email: data.email,
           avatar: data.avatar || '',
           provider: data.provider || prev?.provider || 'email',
@@ -2327,7 +2328,8 @@ export default function App() {
                   setCurrentUser({
                     id: String(apiData.user.id || ''),
                     name: apiData.user.name,
-                    xp: Number.isSafeInteger(apiData.user.xp) && apiData.user.xp >= 0 ? apiData.user.xp : 0,\n                    completedIds: Array.isArray(apiData.user.completedIds) ? apiData.user.completedIds : [],
+                    xp: Number.isSafeInteger(apiData.user.xp) && apiData.user.xp >= 0 ? apiData.user.xp : 0,
+                    completedIds: Array.isArray(apiData.user.completedIds) ? apiData.user.completedIds : [],
                     email: apiData.user.email,
                     avatar: apiData.user.avatar || '',
                     provider: 'google',
@@ -2445,7 +2447,10 @@ export default function App() {
         },
         allowedChallengeIds: allChallenges.map((challenge) => challenge.id)
       });
-      setCompletedChallenges(mergeCompletedProgress({\n        localCompleted: storedProgress.completed,\n        serverCompleted: currentUser?.completedIds,\n        allowedChallengeIds: allChallenges.map((challenge) => challenge.id)\n      }));
+      setCompletedChallenges(mergeCompletedProgress({
+        localCompleted: storedProgress.completed,
+        serverCompleted: currentUser?.completedIds,
+        allowedChallengeIds: allChallenges.map((challenge) => challenge.id)\n      }));
       setCommunityXP(storedProgress.communityXp);
       if (storedProgress.streak.lastActiveDate !== todayStr) {
         const yesterday = new Date(`${todayStr}T00:00:00.000Z`);
@@ -2663,7 +2668,8 @@ export default function App() {
       setCurrentUser({
         id: String(data.user.id || ''),
         name: data.user.name,
-        xp: Number.isSafeInteger(data.user.xp) && data.user.xp >= 0 ? data.user.xp : 0,\n        completedIds: Array.isArray(data.user.completedIds) ? data.user.completedIds : [],
+        xp: Number.isSafeInteger(data.user.xp) && data.user.xp >= 0 ? data.user.xp : 0,
+        completedIds: Array.isArray(data.user.completedIds) ? data.user.completedIds : [],
         email: data.user.email,
         avatar: data.user.avatar || '',
         provider: 'email',
