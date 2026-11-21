@@ -56,6 +56,13 @@ export function getSessionCsrfToken() {
   try { return decodeURIComponent(item.slice(item.indexOf('=') + 1)); } catch { return ''; }
 }
 
+function withSessionRefreshLock(callback) {
+  if (typeof navigator === 'undefined' || !navigator.locks?.request) {
+    throw new Error('Este navegador não oferece bloqueio entre abas para operações de sessão.');
+  }
+  return navigator.locks.request(REFRESH_LOCK_NAME, { mode: 'exclusive' }, callback);
+}
+
 async function performRefresh() {
   if (logoutInProgress) return null;
   const refreshEpoch = sessionEpoch;
@@ -79,12 +86,7 @@ async function performRefresh() {
 export function refreshSession() {
   if (logoutInProgress) return Promise.resolve(null);
   if (refreshInFlight) return refreshInFlight;
-  const run = async () => {
-    if (typeof navigator === 'undefined' || !navigator.locks?.request) {
-      throw new Error('Este navegador não oferece bloqueio entre abas para renovar a sessão com segurança.');
-    }
-    return navigator.locks.request(REFRESH_LOCK_NAME, { mode: 'exclusive' }, performRefresh);
-  };
+  const run = () => withSessionRefreshLock(performRefresh);
   refreshInFlight = run().finally(() => { refreshInFlight = null; });
   return refreshInFlight;
 }
@@ -138,17 +140,21 @@ export async function logoutSession(token) {
   sessionEpoch += 1;
   let serverRevoked = false;
   try {
-    const csrfToken = getSessionCsrfToken();
-    const response = await fetch(sessionApiUrl('/api/auth/session/logout'), {
-      method: 'POST',
-      credentials: 'include',
-      cache: 'no-store',
-      headers: {
-        Authorization: `Bearer ${token || accessToken || ''}`,
-        'X-CSRF-Token': csrfToken
-      }
+    serverRevoked = await withSessionRefreshLock(async () => {
+      // Read the CSRF cookie only after acquiring the shared lock: another tab
+      // may have rotated both cookies immediately before this logout.
+      const csrfToken = getSessionCsrfToken();
+      const response = await fetch(sessionApiUrl('/api/auth/session/logout'), {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          Authorization: `Bearer ${token || accessToken || ''}`,
+          'X-CSRF-Token': csrfToken
+        }
+      });
+      return response.status === 204;
     });
-    serverRevoked = response.status === 204;
   } catch {
     serverRevoked = false;
   } finally {
