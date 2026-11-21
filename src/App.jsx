@@ -2271,6 +2271,7 @@ export default function App() {
         setCurrentUser((prev) => ({
           id: data.id,
           name: data.name,
+          xp: Number.isSafeInteger(data.xp) && data.xp >= 0 ? data.xp : 0,
           email: data.email,
           avatar: data.avatar || '',
           provider: data.provider || prev?.provider || 'email',
@@ -2705,10 +2706,13 @@ export default function App() {
     }
   };
 
-  const totalXP = useMemo(() => {
-    const labsXP = completedChallenges.length * 50;
-    return labsXP + communityXP;
-  }, [completedChallenges.length, communityXP]);
+  // Only XP returned by the authenticated API is trusted. Local completions and
+  // community actions remain device-local until the server validates them.
+  const totalXP = useMemo(() => (
+    currentUser && Number.isSafeInteger(currentUser.xp) && currentUser.xp >= 0
+      ? currentUser.xp
+      : 0
+  ), [currentUser?.id, currentUser?.xp]);
 
   const studentLevel = Math.floor(totalXP / 250) + 1;
   const totalInteractiveChallenges = allChallenges.length;
@@ -3492,7 +3496,7 @@ export default function App() {
                   onClick={() => openChallenge(dailyBugChallenge.id)}
                   className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-rose-200 flex items-center justify-center gap-1.5"
                 >
-                  <span>Resolver Bug (+50 XP)</span>
+                  <span>Resolver Bug (XP após validação)</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -3817,7 +3821,7 @@ export default function App() {
                                       <span>•</span>
                                       <span>{ch.difficulty}</span>
                                       <span>•</span>
-                                      <span className="text-amber-400 font-mono">+50 XP</span>
+                                      <span className="text-amber-400 font-mono">Concluída localmente</span>
                                     </div>
                                   </div>
                                 </div>
@@ -4667,7 +4671,7 @@ function ChallengeWorkspace({
             {lessonDoneNow ? (
               <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Aula Concluída (+50 XP)</span>
+                <span>Aula concluída neste dispositivo</span>
               </span>
             ) : (
               <span className="text-xs text-slate-400 font-mono">+{challenge.xp} XP</span>
@@ -4928,7 +4932,7 @@ function ChallengeWorkspace({
                       {allPassed && (
                         <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 flex flex-wrap items-center justify-between gap-2">
                           <span className="text-xs font-bold text-emerald-300">
-                            Parabéns! Todos os critérios foram aprovados (+50 XP).
+                            Parabéns! Todos os critérios locais foram aprovados. O XP será liberado após validação segura.
                           </span>
                           {nextChallenge && (
                             <button
