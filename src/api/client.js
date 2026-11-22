@@ -1,3 +1,5 @@
+import { resolveAuthenticatedApiUrl } from '../auth/request-url-policy.js';
+
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 export function apiFetch(path, options = {}) {
@@ -5,7 +7,13 @@ export function apiFetch(path, options = {}) {
     throw new TypeError('Caminho de API inválido.');
   }
 
-  return fetch(API_BASE_URL + path, {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const safeUrl = resolveAuthenticatedApiUrl(path, {
+    apiBaseUrl: API_BASE_URL,
+    origin
+  });
+
+  return fetch(safeUrl, {
     ...options,
     credentials: 'include',
     cache: options.cache || 'no-store'
