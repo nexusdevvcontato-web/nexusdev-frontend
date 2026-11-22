@@ -47,3 +47,31 @@ test('rejects malformed origins and credential-bearing URLs', () => {
     origin: 'https://app.example.test'
   }), TypeError);
 });
+
+test('rejects insecure remote API origins but allows local HTTP development', () => {
+  for (const apiBaseUrl of [
+    'http://api.example.test',
+    'http://192.0.2.10',
+    'ftp://api.example.test'
+  ]) {
+    assert.throws(() => resolveAuthenticatedApiUrl('/api/test', {
+      apiBaseUrl,
+      origin: 'https://app.example.test'
+    }), TypeError, apiBaseUrl);
+  }
+
+  assert.equal(
+    resolveAuthenticatedApiUrl('/api/test', {
+      apiBaseUrl: 'http://localhost:3000',
+      origin: 'http://localhost:5173'
+    }),
+    'http://localhost:3000/api/test'
+  );
+  assert.equal(
+    resolveAuthenticatedApiUrl('/api/test', {
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      origin: 'http://localhost:5173'
+    }),
+    'http://127.0.0.1:3000/api/test'
+  );
+});
