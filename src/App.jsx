@@ -3,6 +3,7 @@ import { apiFetch, API_BASE_URL } from './api/client.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, getSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, finalizeSessionLogout } from './auth/session-client.js';
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
+import { extractPasswordResetLocation } from './auth/password-reset-url.js';
 import { validateStoredProgress, mergeCompletedProgress } from './storage/progress-storage-policy.js';
 import {
   Code2,
@@ -2575,23 +2576,19 @@ export default function App() {
   }, [capstoneSubmission, userStoragePrefix, loadedStoragePrefix]);
 
   useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const token = fragmentParams.get('passwordResetToken') || queryParams.get('passwordResetToken');
+    const { token, cleanedUrl } = extractPasswordResetLocation({
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash
+    });
     if (token) {
       setPasswordResetToken(token);
       setAuthMode('reset');
       setAuthModalOpen(true);
       setPasswordResetMessage('');
-      queryParams.delete('passwordResetToken');
-      fragmentParams.delete('passwordResetToken');
-      const query = queryParams.toString();
-      const fragment = fragmentParams.toString();
-      window.history.replaceState(
-        {},
-        '',
-        window.location.pathname + (query ? `?${query}` : '') + (fragment ? `#${fragment}` : '')
-      );
+    }
+    if (cleanedUrl !== window.location.pathname + window.location.search + window.location.hash) {
+      window.history.replaceState({}, '', cleanedUrl);
     }
   }, []);
 
