@@ -1,66 +1,67 @@
 # Proxy de API da Vercel — staging NexusDev
 
-**Status:** preparação documentada; rewrite externo ainda não configurado.
-**Branch alvo:** `rebuild/v2-security`.
-**Destino autorizado:** somente um Web Service de staging criado separadamente no Render.
-**Produção:** não alterar nem apontar Preview para `https://nexusdev-1rq3.onrender.com`.
+**Status:** configurado na branch de staging; documentação atualizada.
+**Branch:** `rebuild/v2-security`.
+**Frontend:** projeto Vercel `nexusdev-frontend`, Preview protegido por SSO.
+**Backend de staging:** serviço Render `nexusdev-staging-v2`.
+**Banco:** MongoDB Atlas `NexusDev Staging`, database `nexusdev_staging`.
 
-## Por que o rewrite ainda não foi adicionado
+> Produção permanece isolada. Não apontar Preview para o backend de produção, não fazer merge para `main` e não alterar serviços ou dados de produção.
 
-O destino externo precisa ser a URL real atribuída pelo Render ao novo serviço de staging. Esse serviço ainda não foi criado, portanto seu hostname não existe/foi confirmado. Colocar um placeholder no `vercel.json` quebraria as chamadas da API no Preview; usar o endereço conhecido de produção violaria o isolamento. Por isso, o `vercel.json` continua com apenas o fallback SPA até que o host de staging seja confirmado.
+## Roteamento atual
 
-## Configuração final esperada
+O arquivo `vercel.json` desta branch contém, nesta ordem:
 
-Depois que o serviço de staging existir e sua URL tiver sido conferida no painel do Render, atualizar o `vercel.json` desta branch. O rewrite externo da API deve aparecer antes do fallback SPA:
+1. Rewrite de `/api/:path*` para `https://nexusdev-staging-v2.onrender.com/api/:path*`.
+2. Fallback SPA de `/(.*)` para `/index.html`.
 
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://<HOST-REAL-DO-STAGING>.onrender.com/api/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
-}
-```
+O rewrite é same-origin para o navegador: o frontend chama caminhos relativos `/api/*`; a Vercel encaminha essas requisições ao backend de staging.
 
-Substituir o placeholder pelo hostname exato do serviço de staging. Não usar domínio de produção, não acrescentar segredo ou token à URL e não configurar rewrite para host arbitrário. Preservar o restante da configuração Vercel existente.
+## Ambientes e URLs
+
+- Render staging: `https://nexusdev-staging-v2.onrender.com`
+- Health check configurado no Render: `/api/health`
+- Vercel Preview branch alias: `https://nexusdev-frontend-git-rebuild-v2-security-nexusdevvcontato-4011.vercel.app`
+- Acesso ao Preview continua protegido por Vercel SSO. Não desabilitar SSO nem criar Preview público.
+
+A URL de produção do Render não é destino válido para este proxy e não deve ser usada em Preview.
 
 ## Contrato do frontend
 
-- `VITE_API_BASE_URL` deve permanecer vazio no Preview que usa o proxy.
-- O código já constrói as chamadas com caminhos relativos quando a variável está vazia.
-- Não colocar segredos em variáveis `VITE_*`; elas são incorporadas ao bundle público.
-- Não usar a URL direta do Render no frontend após ativar o proxy same-origin.
-- O frontend deve continuar tratando respostas de erro sem simular login, sessão, XP ou certificado.
+- `VITE_API_BASE_URL` permanece vazio no Preview que usa o proxy.
+- `src/api/client.js` usa caminhos relativos quando a variável está vazia.
+- `apiFetch` inclui `credentials: 'include'` e usa `cache: 'no-store'` por padrão.
+- Não colocar segredos em variáveis `VITE_*`; elas podem ser incorporadas ao bundle público.
+- Não configurar o frontend para chamar diretamente o backend de produção.
 
-## Cache e transporte
+## CORS, cookies e cache
 
+- A variável `CORS_ORIGINS` do Render staging deve permitir a origem exata do Preview branch alias indicada acima.
+- O backend deve preservar a validação de Origin e os atributos seguros dos cookies de sessão.
+- Respostas privadas e de autenticação devem usar `Cache-Control: no-store`.
 - Não adicionar regras de cache para `/api/*`.
-- O backend deve retornar `Cache-Control: no-store` para login, refresh, logout, CSRF, reautenticação, exportação de dados e demais respostas privadas.
-- Verificar no navegador que as respostas da API mantêm a origem Vercel e que os cabeçalhos `Set-Cookie` são encaminhados e aplicados corretamente.
-- Verificar que o cookie de refresh permanece `Secure`, `HttpOnly`, `Path=/`, sem `Domain`; o cookie `__Host-` precisa ser emitido pela origem Vercel vista pelo navegador.
-- O backend deve permitir a origem Preview exata em `CORS_ORIGINS`, pois o middleware de segurança pode validar `Origin` mesmo quando a navegação é same-origin.
-- Não assumir que rewrite por si só completa autenticação por cookie. Os endpoints de sessão, refresh, logout, autenticação e CSRF ainda precisam de migração coordenada.
+- Ao validar no navegador, inspecionar status, origem, cookies e cabeçalhos sem registrar ou compartilhar credenciais, cookies ou tokens.
+- O rewrite, isoladamente, não comprova o funcionamento completo dos fluxos de autenticação. Refresh, logout, CSRF e persistência de sessão precisam ser validados no Preview protegido.
 
-## Procedimento após provisionamento do staging
+## Configuração operacional do Render
 
-1. Confirmar hostname e health check do backend de staging no Render.
-2. Confirmar que a variável `MONGO_URI` do serviço aponta apenas para o banco de teste.
-3. Aplicar o rewrite acima, substituindo o placeholder pelo hostname confirmado.
-4. Manter `VITE_API_BASE_URL=` vazio no ambiente Preview.
-5. Confirmar a origem Preview exata e incluí-la na allowlist CORS do backend de staging.
-6. Executar build e CI da branch.
-7. Fazer deploy apenas de Preview e validar login, cookies, refresh, logout, CSRF e cache em navegador.
-8. Inspecionar Network e logs sem registrar credenciais, cookies ou tokens.
+- Serviço: `nexusdev-staging-v2`.
+- Branch conectada: `rebuild/v2-security`.
+- Auto Deploy: desligado; deploys devem ser manuais e somente após CI aprovado.
+- Health check path: `/api/health`.
+- A configuração de banco do serviço deve apontar exclusivamente para o cluster e database de staging.
+- Nunca registrar valores de variáveis de ambiente, URI de banco, tokens ou segredos nesta documentação.
 
-## Estado atual verificado
+## Procedimento seguro para mudanças futuras
 
-- `src/App.jsx` usa `VITE_API_BASE_URL || ''`, portanto aceita a origem atual quando a variável está vazia.
-- `vercel.json` ainda contém somente o fallback SPA.
-- Nenhum destino externo foi configurado.
-- Nenhum serviço Render foi criado e nenhuma URL de produção foi usada nesta preparação.
+1. Fazer alterações somente em `rebuild/v2-security`.
+2. Revisar o diff e confirmar que o destino do rewrite continua sendo o Render staging.
+3. Executar e aguardar CI verde.
+4. Se houver alteração de backend, avaliar e autorizar separadamente um deploy manual do serviço Render staging.
+5. Se houver alteração de frontend que exija publicação, considerar a quota de deploys e manter SSO habilitado.
+6. Validar os fluxos necessários com contas e dados sintéticos.
+7. Não fazer merge para `main`, não alterar produção e não usar dados reais de usuários.
+
+## Limites da validação registrada
+
+A integração Vercel Preview → rewrite → Render staging já respondeu HTTP 200 no health check em uma verificação anterior. Essa resposta foi obtida antes do deploy mais recente do backend. Após esse deploy, os logs do Render confirmaram inicialização do servidor e conexão ao MongoDB, mas uma nova chamada HTTP ao health check ainda não foi confirmada. Não interpretar status `READY` do Preview ou logs de inicialização como teste E2E completo.
