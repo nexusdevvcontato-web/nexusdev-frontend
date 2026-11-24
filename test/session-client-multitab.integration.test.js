@@ -44,8 +44,10 @@ function createSharedBrowser({ refreshStatus = 200 } = {}) {
       if (String(url).includes('/api/auth/session/refresh')) {
         const csrf = new Headers(options.headers).get('X-CSRF-Token');
         state.refreshCalls.push(csrf);
-        const next = 'csrf-' + state.refreshCalls.length;
-        state.cookie = '__Host-nexusdev_csrf=' + next;
+        if (refreshStatus === 200) {
+          const next = 'csrf-' + state.refreshCalls.length;
+          state.cookie = '__Host-nexusdev_csrf=' + next;
+        }
         return new Response(JSON.stringify(refreshStatus === 200
           ? { accessToken: 'access-' + state.refreshCalls.length }
           : { error: 'Sessão expirada.' }), {
@@ -130,5 +132,31 @@ test('a rejected refresh finalizes local logout and prevents repeated refresh at
   } finally {
     first.restore();
     second.restore();
+  }
+});
+
+
+test('a temporary refresh failure preserves local session state and applies a retry cooldown', async () => {
+  const { state, browser } = createSharedBrowser({ refreshStatus: 503 });
+  const client = await loadClient(browser);
+  try {
+    const originalCookie = state.cookie;
+    await assert.rejects(
+      client.module.refreshSession(),
+      /Falha temporária ao renovar a sessão/
+    );
+    assert.equal(state.refreshCalls.length, 1);
+    assert.equal(state.cookie, originalCookie,
+      'a temporary server failure must not clear or rotate the CSRF cookie');
+    assert.equal(client.module.getSessionAccessToken(), null);
+    await assert.rejects(
+      client.module.refreshSession(),
+      /temporariamente em espera/
+    );
+    assert.equal(state.refreshCalls.length, 1,
+      'the cooldown must prevent immediate repeated network attempts');
+    assert.equal(state.cookie, originalCookie);
+  } finally {
+    client.restore();
   }
 });
