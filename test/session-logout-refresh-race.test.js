@@ -39,7 +39,7 @@ test('refresh and logout resolve their endpoints through the authenticated API U
 
 test('a logout broadcast from another tab invalidates local refreshes', () => {
   assert.match(source, /event\.data\?\.type === 'logout'[\s\S]*?sessionEpoch \+= 1[\s\S]*?logoutInProgress = true[\s\S]*?accessToken = null/);
-  assert.match(source, /if \(accessToken\) logoutInProgress = false/);
+  assert.match(source, /if \(accessToken\) \{\s*logoutInProgress = false;\s*refreshRetryAfter = 0;/);
 });
 
 test('legacy email-keyed learning data is not automatically assigned to a user ID', async () => {
