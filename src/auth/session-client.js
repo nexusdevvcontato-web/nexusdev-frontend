@@ -76,7 +76,10 @@ async function performRefresh() {
   const payload = await response.json().catch(() => ({}));
   if (refreshEpoch !== sessionEpoch || logoutInProgress) return null;
   if (!response.ok || typeof payload.accessToken !== 'string') {
-    setSessionAccessToken(null);
+    // A rejected refresh means this browser can no longer rely on the session.
+    // End the local session once and notify other tabs instead of retrying on
+    // every subsequent authenticated request.
+    finalizeSessionLogout();
     return null;
   }
   setSessionAccessToken(payload.accessToken);
