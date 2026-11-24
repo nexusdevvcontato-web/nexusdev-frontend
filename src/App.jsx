@@ -4222,8 +4222,9 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
         }
         throw new Error(payload.error || 'Não foi possível exportar os dados da conta.');
       }
-      const payload = await response.json();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      // Consume the streamed JSON as a Blob; avoid parsing the complete export
+      // into a JavaScript object and serializing a second full copy in memory.
+      const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
