@@ -5,6 +5,8 @@ let accessToken = null;
 let refreshInFlight = null;
 let sessionEpoch = 0;
 let logoutInProgress = false;
+let refreshRetryAfter = 0;
+const REFRESH_RETRY_COOLDOWN_MS = 30_000;
 const listeners = new Set();
 let channel = null;
 
@@ -35,7 +37,10 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
 
 export function setSessionAccessToken(token) {
   accessToken = typeof token === 'string' && token ? token : null;
-  if (accessToken) logoutInProgress = false;
+  if (accessToken) {
+    logoutInProgress = false;
+    refreshRetryAfter = 0;
+  }
   notify({ type: 'token', token: accessToken });
 }
 
@@ -67,20 +72,31 @@ async function performRefresh() {
   if (logoutInProgress) return null;
   const refreshEpoch = sessionEpoch;
   const csrfToken = getSessionCsrfToken();
-  const response = await fetch(sessionApiUrl('/api/auth/session/refresh'), {
-    method: 'POST',
-    credentials: 'include',
-    cache: 'no-store',
-    headers: { 'X-CSRF-Token': csrfToken }
-  });
+  let response;
+  try {
+    response = await fetch(sessionApiUrl('/api/auth/session/refresh'), {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { 'X-CSRF-Token': csrfToken }
+    });
+  } catch (error) {
+    refreshRetryAfter = Date.now() + REFRESH_RETRY_COOLDOWN_MS;
+    throw error;
+  }
   const payload = await response.json().catch(() => ({}));
   if (refreshEpoch !== sessionEpoch || logoutInProgress) return null;
-  if (!response.ok || typeof payload.accessToken !== 'string') {
-    // A rejected refresh means this browser can no longer rely on the session.
-    // End the local session once and notify other tabs instead of retrying on
-    // every subsequent authenticated request.
+  if (!response.ok) {
+    if (response.status === 408 || response.status === 429 || response.status >= 500) {
+      refreshRetryAfter = Date.now() + REFRESH_RETRY_COOLDOWN_MS;
+      throw new Error('Falha temporária ao renovar a sessão. Tente novamente em instantes.');
+    }
     finalizeSessionLogout();
     return null;
+  }
+  if (typeof payload.accessToken !== 'string' || !payload.accessToken) {
+    refreshRetryAfter = Date.now() + REFRESH_RETRY_COOLDOWN_MS;
+    throw new Error('Resposta inválida ao renovar a sessão.');
   }
   setSessionAccessToken(payload.accessToken);
   return payload.accessToken;
@@ -88,6 +104,9 @@ async function performRefresh() {
 
 export function refreshSession() {
   if (logoutInProgress) return Promise.resolve(null);
+  if (Date.now() < refreshRetryAfter) {
+    return Promise.reject(new Error('A renovação da sessão está temporariamente em espera.'));
+  }
   if (refreshInFlight) return refreshInFlight;
   const run = () => withSessionRefreshLock(performRefresh);
   refreshInFlight = run().finally(() => { refreshInFlight = null; });
