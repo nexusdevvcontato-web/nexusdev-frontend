@@ -4002,6 +4002,9 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
   });
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [savingPreference, setSavingPreference] = useState('');
+  const [deletionImpact, setDeletionImpact] = useState(null);
+  const [deletionImpactLoading, setDeletionImpactLoading] = useState(true);
+  const [deletionImpactError, setDeletionImpactError] = useState('');
   const [reauthPassword, setReauthPassword] = useState('');
   const [reauthLoading, setReauthLoading] = useState(false);
   const [reauthError, setReauthError] = useState('');
@@ -4031,6 +4034,27 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
         if (active) setError(err.message || 'Falha ao carregar preferências.');
       })
       .finally(() => { if (active) setPreferencesLoading(false); });
+    return () => { active = false; };
+  }, [authToken]);
+
+  useEffect(() => {
+    let active = true;
+    authenticatedFetch(`${API_BASE_URL}/api/privacy/deletion-impact`, {
+      headers: { Authorization: `Bearer ${authToken}`, Accept: 'application/json' },
+      cache: 'no-store'
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Não foi possível carregar a prévia de impacto.');
+        return payload;
+      })
+      .then((payload) => {
+        if (active) setDeletionImpact(payload);
+      })
+      .catch((err) => {
+        if (active) setDeletionImpactError(err.message || 'Falha ao consultar a prévia de impacto.');
+      })
+      .finally(() => { if (active) setDeletionImpactLoading(false); });
     return () => { active = false; };
   }, [authToken]);
 
@@ -4244,6 +4268,34 @@ function PrivacyCenterView({ authToken, currentUser, googleClientId, onBack }) {
             <li>Comentários: texto, aula, nome público e data dos comentários associados à conta. Comentários antigos sem vínculo seguro com uma conta não são atribuídos por suposição.</li>
             <li>Sessões: datas de criação, última atividade, expiração e revogação, sem tokens ou segredos de autenticação.</li>
           </ul>
+        </section>
+
+        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <div>
+            <h2 className="text-base font-bold text-white">Prévia de impacto de exclusão</h2>
+            <p className="text-xs text-slate-400 mt-1">Consulta somente leitura dos registros associados à sua conta. Nenhum dado é excluído ou alterado por esta consulta.</p>
+          </div>
+          {deletionImpactLoading ? (
+            <p role="status" className="text-sm text-slate-400">Consultando registros vinculados...</p>
+          ) : deletionImpactError ? (
+            <p role="alert" className="text-sm text-rose-300">{deletionImpactError}</p>
+          ) : deletionImpact ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Sessões</p><p className="font-semibold text-white">{deletionImpact.sessions?.count ?? '—'}</p></div>
+                <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Tokens de renovação</p><p className="font-semibold text-white">{deletionImpact.sessions?.refreshTokens ?? '—'}</p></div>
+                <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Comprovantes de conclusão</p><p className="font-semibold text-white">{deletionImpact.completionProofs?.count ?? '—'}</p></div>
+                <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Artefatos de aprendizagem</p><p className="font-semibold text-white">{deletionImpact.learning?.artifactCount ?? '—'}</p></div>
+                <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Comentários vinculados</p><p className="font-semibold text-white">{deletionImpact.comments?.linkedCount ?? '—'}</p></div>
+                <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Certificado emitido</p><p className="font-semibold text-white">{deletionImpact.certificate?.present ? 'Sim' : 'Não'}</p></div>
+              </div>
+              <p className="text-xs text-amber-300">Comentários antigos sem vínculo verificável: não atribuíveis ({deletionImpact.comments?.legacy?.status === 'not_attributable' ? 'quantidade desconhecida' : 'situação não confirmada'}). Sistemas externos: {deletionImpact.externalSystems?.status === 'not_inspected' ? 'não inspecionados' : 'situação pendente'}.</p>
+              <p className="text-xs text-slate-400">Política de certificados: {deletionImpact.certificate?.decision === 'pending' ? 'pendente de decisão' : 'registrada'}.</p>
+              <p className="text-xs font-semibold text-white">{deletionImpact.deletionEnabled === false ? 'Exclusão automática indisponível. Esta tela não executa exclusão.' : 'Status de exclusão informado pelo servidor.'}</p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">A prévia não está disponível no momento.</p>
+          )}
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
