@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../src/auth/session-client.js', import.meta.url), 'utf8');
 
-function createSharedBrowser() {
+function createSharedBrowser({ refreshStatus = 200 } = {}) {
   let lockTail = Promise.resolve();
   const channels = new Set();
   const state = { cookie: '__Host-nexusdev_csrf=csrf-initial', refreshCalls: [], logoutCalls: 0 };
@@ -46,8 +46,10 @@ function createSharedBrowser() {
         state.refreshCalls.push(csrf);
         const next = 'csrf-' + state.refreshCalls.length;
         state.cookie = '__Host-nexusdev_csrf=' + next;
-        return new Response(JSON.stringify({ accessToken: 'access-' + state.refreshCalls.length }), {
-          status: 200, headers: { 'Content-Type': 'application/json' }
+        return new Response(JSON.stringify(refreshStatus === 200
+          ? { accessToken: 'access-' + state.refreshCalls.length }
+          : { error: 'Sessão expirada.' }), {
+          status: refreshStatus, headers: { 'Content-Type': 'application/json' }
         });
       }
       if (String(url).includes('/api/auth/session/logout')) {
@@ -103,6 +105,28 @@ test('two tabs serialize refresh rotation and propagate confirmed logout', async
     assert.equal(state.logoutCalls, 1);
     assert.equal(await second.module.refreshSession(), null,
       'a confirmed logout in one tab must prevent refresh in every other tab');
+  } finally {
+    first.restore();
+    second.restore();
+  }
+});
+
+
+test('a rejected refresh finalizes local logout and prevents repeated refresh attempts across tabs', async () => {
+  const { state, browser } = createSharedBrowser({ refreshStatus: 401 });
+  const first = await loadClient(browser);
+  const second = await loadClient(browser);
+  try {
+    assert.equal(await first.module.refreshSession(), null);
+    assert.equal(state.refreshCalls.length, 1);
+    assert.equal(await first.module.refreshSession(), null,
+      'the same tab must not retry a rejected refresh');
+    assert.equal(await second.module.refreshSession(), null,
+      'the logout broadcast must prevent refresh in other tabs');
+    assert.equal(state.refreshCalls.length, 1,
+      'a rejected session must not cause repeated network attempts');
+    assert.equal(state.cookie, '',
+      'local CSRF cookie must be cleared when refresh is rejected');
   } finally {
     first.restore();
     second.restore();
