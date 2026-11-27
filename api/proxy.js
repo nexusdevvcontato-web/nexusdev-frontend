@@ -3,6 +3,18 @@ const SECRET_HEADER = 'x-nexus-proxy-key';
 const REQUEST_HEADERS = ['accept', 'content-type', 'cookie', 'origin', 'user-agent', 'x-csrf-token'];
 const RESPONSE_HEADERS = ['cache-control', 'content-disposition', 'content-type', 'etag', 'last-modified', 'retry-after', 'vary', 'x-request-id'];
 
+function getApiPath(value) {
+  const path = Array.isArray(value) ? value.join('/') : value;
+  if (typeof path !== 'string' || !path || path.startsWith('/') || path.includes('?') || path.includes('#') || path.includes('\\')) {
+    return null;
+  }
+  const segments = path.split('/');
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..' || !/^[A-Za-z0-9._~-]+$/.test(segment))) {
+    return null;
+  }
+  return `/api/${segments.join('/')}`;
+}
+
 export default async function handler(req, res) {
   const secret = process.env.NEXUSDEV_PROXY_SECRET;
   if (typeof secret !== 'string' || secret.length < 32) {
@@ -11,16 +23,25 @@ export default async function handler(req, res) {
     return res.end('Proxy de API não configurado neste ambiente.');
   }
 
-  let incoming;
+  const apiPath = getApiPath(req.query?.path);
+  if (!apiPath) {
+    res.statusCode = 400;
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end('Caminho de API inválido.');
+  }
+
   let target;
   try {
-    incoming = new URL(req.url, 'https://vercel.invalid');
-    if (!incoming.pathname.startsWith('/api/')) { res.statusCode = 404; return res.end('Not found'); }
-    // The upstream origin is fixed to staging; request input can never select a host.
-    target = new URL(incoming.pathname + incoming.search, STAGING_API_ORIGIN);
-    if (target.origin !== STAGING_API_ORIGIN) { res.statusCode = 400; return res.end('Invalid API path'); }
+    const incoming = new URL(req.url, 'https://vercel.invalid');
+    incoming.searchParams.delete('path');
+    target = new URL(apiPath + incoming.search, STAGING_API_ORIGIN);
+    if (target.origin !== STAGING_API_ORIGIN) {
+      res.statusCode = 400;
+      return res.end('Caminho de API inválido.');
+    }
   } catch {
-    return res.status(400).end('Invalid API request');
+    res.statusCode = 400;
+    return res.end('Requisição de API inválida.');
   }
 
   const headers = new Headers();
@@ -53,7 +74,6 @@ export default async function handler(req, res) {
       const value = upstream.headers.get(name);
       if (value) res.setHeader(name, value);
     }
-    // Preserve multiple session-cookie headers separately.
     const cookies = upstream.headers.getSetCookie?.() || [];
     if (cookies.length) res.setHeader('set-cookie', cookies);
 
