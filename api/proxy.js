@@ -1,6 +1,6 @@
 const STAGING_API_ORIGIN = 'https://nexusdev-staging-v2.onrender.com';
 const SECRET_HEADER = 'x-nexus-proxy-key';
-const REQUEST_HEADERS = ['accept', 'content-type', 'cookie', 'origin', 'user-agent', 'x-csrf-token'];
+const REQUEST_HEADERS = ['accept', 'authorization', 'content-type', 'cookie', 'origin', 'user-agent', 'x-csrf-token'];
 const RESPONSE_HEADERS = ['cache-control', 'content-disposition', 'content-type', 'etag', 'last-modified', 'retry-after', 'vary', 'x-request-id'];
 
 function getApiPath(value) {
