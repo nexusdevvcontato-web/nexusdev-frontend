@@ -4,6 +4,7 @@ import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToke
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
 import { extractPasswordResetLocation } from './auth/password-reset-url.js';
+import { getAuthFailureMessage } from './auth/auth-error-message.js';
 import { validateStoredProgress, mergeCompletedProgress } from './storage/progress-storage-policy.js';
 import {
   Code2,
@@ -2661,7 +2662,7 @@ export default function App() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.accessToken || !data.user) {
-        setAuthError(data.error || 'Não foi possível autenticar. Verifique a conexão com a API.');
+        setAuthError(getAuthFailureMessage(res.status, data));
         return;
       }
 
