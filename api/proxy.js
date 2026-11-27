@@ -33,6 +33,7 @@ export default async function handler(req, res) {
   let target;
   try {
     const incoming = new URL(req.url, 'https://vercel.invalid');
+    incoming.searchParams.delete('path');
     target = new URL(apiPath + incoming.search, STAGING_API_ORIGIN);
     if (target.origin !== STAGING_API_ORIGIN) {
       res.statusCode = 400;
