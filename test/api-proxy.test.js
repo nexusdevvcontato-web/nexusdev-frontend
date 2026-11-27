@@ -21,8 +21,9 @@ test('proxy fails closed when the preview secret is not configured', async () =>
   const previous = process.env.NEXUSDEV_PROXY_SECRET;
   delete process.env.NEXUSDEV_PROXY_SECRET;
   const res = responseSink();
+  const finished = new Promise(resolve => res.once('finish', resolve));
   await handler({ url: '/api/health', method: 'GET', headers: {} }, res);
-  await new Promise(resolve => res.on('finish', resolve));
+  await finished;
   assert.equal(res.statusCode, 503);
   if (previous !== undefined) process.env.NEXUSDEV_PROXY_SECRET = previous;
 });
@@ -38,13 +39,14 @@ test('proxy forwards only to the fixed staging API and preserves auth headers', 
   };
   try {
     const res = responseSink();
+    const finished = new Promise(resolve => res.once('finish', resolve));
     await handler({
       url: '/api/auth/session/login?source=test',
       method: 'POST',
       headers: { cookie: 'session=synthetic', origin: 'https://preview.example', 'content-type': 'application/json', 'x-csrf-token': 'csrf' },
       body: { email: 'synthetic@example.invalid', password: 'not-a-real-password' }
     }, res);
-    await new Promise(resolve => res.on('finish', resolve));
+    await finished;
     assert.equal(captured.url, 'https://nexusdev-staging-v2.onrender.com/api/auth/session/login?source=test');
     assert.equal(captured.options.headers.get('x-nexus-proxy-key'), 's'.repeat(48));
     assert.equal(captured.options.headers.get('cookie'), 'session=synthetic');
