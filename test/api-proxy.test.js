@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import handler from '../api/[...path].js';
+import handler from '../api/proxy.js';
 import { PassThrough } from 'node:stream';
 
 function responseSink() {
@@ -23,7 +23,7 @@ test('proxy fails closed when the preview secret is not configured', async () =>
   delete process.env.NEXUSDEV_PROXY_SECRET;
   const res = responseSink();
   const finished = new Promise(resolve => res.once('finish', resolve));
-  await handler({ url: '/api/health', method: 'GET', headers: {} }, res);
+  await handler({ url: '/api/proxy?path=health', query: { path: 'health' }, method: 'GET', headers: {} }, res);
   await finished;
   assert.equal(res.statusCode, 503);
   if (previous !== undefined) process.env.NEXUSDEV_PROXY_SECRET = previous;
@@ -42,7 +42,8 @@ test('proxy forwards only to the fixed staging API and preserves auth headers', 
     const res = responseSink();
     const finished = new Promise(resolve => res.once('finish', resolve));
     await handler({
-      url: '/api/auth/session/login?source=test',
+      url: '/api/proxy?path=auth%2Fsession%2Flogin&source=test',
+      query: { path: 'auth/session/login' },
       method: 'POST',
       headers: { cookie: 'session=synthetic', origin: 'https://preview.example', 'content-type': 'application/json', 'x-csrf-token': 'csrf' },
       body: { email: 'synthetic@example.invalid', password: 'not-a-real-password' }
