@@ -15,10 +15,10 @@ export default async function handler(req, res) {
   let target;
   try {
     incoming = new URL(req.url, 'https://vercel.invalid');
-    if (!incoming.pathname.startsWith('/api/')) return res.status(404).end('Not found');
+    if (!incoming.pathname.startsWith('/api/')) { res.statusCode = 404; return res.end('Not found'); }
     // The upstream origin is fixed to staging; request input can never select a host.
     target = new URL(incoming.pathname + incoming.search, STAGING_API_ORIGIN);
-    if (target.origin !== STAGING_API_ORIGIN) return res.status(400).end('Invalid API path');
+    if (target.origin !== STAGING_API_ORIGIN) { res.statusCode = 400; return res.end('Invalid API path'); }
   } catch {
     return res.status(400).end('Invalid API request');
   }
