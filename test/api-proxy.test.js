@@ -61,13 +61,14 @@ test('proxy forwards only to the fixed staging API and preserves auth headers', 
   }
 });
 
-test('SPA fallback never captures API routes', () => {
+test('SPA fallback uses a Vercel-supported matcher that excludes API routes', () => {
   const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
   const fallback = config.rewrites.find(rule => rule.destination === '/index.html');
   assert.ok(fallback, 'SPA fallback rewrite must exist');
-  const matcher = new RegExp(fallback.source);
-  assert.equal(matcher.test('/api/health'), false);
-  assert.equal(matcher.test('/api/auth/session/login'), false);
-  assert.equal(matcher.test('/'), true);
-  assert.equal(matcher.test('/student/profile'), true);
+  assert.equal(fallback.source, '/:path((?!api/).*)');
+  const matcher = new RegExp('^(?!api/).*');
+  assert.equal(matcher.test('api/health'), false);
+  assert.equal(matcher.test('api/auth/session/login'), false);
+  assert.equal(matcher.test(''), true);
+  assert.equal(matcher.test('student/profile'), true);
 });
