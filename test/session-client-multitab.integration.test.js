@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../src/auth/session-client.js', import.meta.url), 'utf8');
 
-function createSharedBrowser({ refreshStatus = 200 } = {}) {
+function createSharedBrowser({ refreshStatus = 200, logoutStatus = 204 } = {}) {
   let lockTail = Promise.resolve();
   const channels = new Set();
   const state = { cookie: '__Host-nexusdev_csrf=csrf-initial', refreshCalls: [], logoutCalls: 0 };
@@ -56,7 +56,7 @@ function createSharedBrowser({ refreshStatus = 200 } = {}) {
       }
       if (String(url).includes('/api/auth/session/logout')) {
         state.logoutCalls += 1;
-        return new Response(null, { status: 204 });
+        return new Response(null, { status: logoutStatus });
       }
       throw new Error('Unexpected fetch URL: ' + url);
     }
@@ -156,6 +156,32 @@ test('a temporary refresh failure preserves local session state and applies a re
     assert.equal(state.refreshCalls.length, 1,
       'the cooldown must prevent immediate repeated network attempts');
     assert.equal(state.cookie, originalCookie);
+  } finally {
+    client.restore();
+  }
+});
+
+
+test('a failed logout clears local credentials and cannot silently renew without the CSRF cookie', async () => {
+  const { state, browser } = createSharedBrowser({ refreshStatus: 401, logoutStatus: 503 });
+  const client = await loadClient(browser);
+  try {
+    client.module.setSessionAccessToken('access-before-logout');
+    const revoked = await client.module.logoutSession('access-before-logout');
+    assert.equal(revoked, false,
+      'a server error must never be reported as confirmed revocation');
+    assert.equal(state.logoutCalls, 1);
+    assert.equal(client.module.getSessionAccessToken(), null,
+      'local access credentials must be cleared after the failed logout');
+    assert.equal(state.cookie, '',
+      'the CSRF cookie must be cleared so the browser cannot silently refresh the session');
+
+    assert.equal(await client.module.refreshSession(), null,
+      'the follow-up refresh must fail closed when the server did not confirm logout');
+    assert.equal(state.refreshCalls.length, 1);
+    assert.equal(state.refreshCalls[0], '',
+      'the refresh request must not have a CSRF token after failed logout');
+    assert.equal(client.module.getSessionAccessToken(), null);
   } finally {
     client.restore();
   }
