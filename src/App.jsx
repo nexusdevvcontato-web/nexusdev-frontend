@@ -3994,6 +3994,12 @@ export default function App() {
           />
         )}
       </div>
+      ) : storageIdentityReady && isAuthenticatedView(navState.activeView) ? (
+        <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
+          <p>Esta área exige uma conta autenticada.</p>
+          <p className="text-slate-400">Entre na sua conta para acessar seu perfil, privacidade e dispositivos conectados.</p>
+          <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setAuthModalOpen(true); }} className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500">Entrar</button>
+        </main>
       ) : sessionIdentityError ? (
         <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
           <p>Não foi possível confirmar sua sessão com segurança.</p>
