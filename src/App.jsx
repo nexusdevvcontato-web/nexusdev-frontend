@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiFetch, API_BASE_URL } from './api/client.js';
+import { isAuthenticatedView, resolveViewForSession } from './auth/protected-view-policy.js';
 import { authenticatedFetch, logoutSession, refreshSession, setSessionAccessToken, getSessionAccessToken, subscribeSessionEvents, getSessionCsrfToken, finalizeSessionLogout } from './auth/session-client.js';
 import { useLessonDraftSync } from './drafts/useLessonDraftSync.js';
 import { isStorageIdentityReady } from './storage/storage-identity-policy.js';
@@ -2051,7 +2052,7 @@ export default function App() {
         const parsed = JSON.parse(savedNav);
         const validChallenge = allChallenges.some((c) => c.id === parsed.activeChallengeId);
         return {
-          activeView: parsed.activeView || 'home',
+          activeView: resolveViewForSession(parsed.activeView || 'home'),
           activeModuleId: parsed.activeModuleId || 'mod-1',
           activeChallengeId: validChallenge ? parsed.activeChallengeId : allChallenges[0].id
         };
@@ -2072,7 +2073,17 @@ export default function App() {
     } catch {}
   }, [navState]);
 
+  const [pendingProtectedView, setPendingProtectedView] = useState('');
+
   const setActiveView = (view) => {
+    if (isAuthenticatedView(view) && !currentUser) {
+      setPendingProtectedView(view);
+      setAuthMode('login');
+      setAuthError('');
+      setAuthModalOpen(true);
+      setMobileMenuOpen(false);
+      return;
+    }
     setNavState((prev) => ({ ...prev, activeView: view }));
     setMobileMenuOpen(false);
   };
@@ -2148,6 +2159,8 @@ export default function App() {
       setCurrentUser(null);
       setSessionIdentityError(false);
       setSessionIdentityResolved(true);
+      setPendingProtectedView('');
+      setNavState((prev) => isAuthenticatedView(prev.activeView) ? { ...prev, activeView: 'home' } : prev);
     } else if (event.type === 'token') {
       setAuthToken(event.token || '');
     }
@@ -2343,6 +2356,11 @@ export default function App() {
                   }
                   setAuthModalOpen(false);
                   setAuthError('');
+                  if (pendingProtectedView) {
+                    setNavState((prev) => ({ ...prev, activeView: pendingProtectedView }));
+                    setPendingProtectedView('');
+                    setMobileMenuOpen(false);
+                  }
                   return;
                 }
               } catch {}
@@ -2684,6 +2702,11 @@ export default function App() {
       }
       setAuthModalOpen(false);
       setAuthForm({ name: '', email: '', password: '' });
+      if (pendingProtectedView) {
+        setNavState((prev) => ({ ...prev, activeView: pendingProtectedView }));
+        setPendingProtectedView('');
+        setMobileMenuOpen(false);
+      }
     } catch {
       setAuthError('API indisponível. Sua conta não foi criada nem autenticada localmente.');
     } finally {
@@ -2708,8 +2731,9 @@ export default function App() {
     const serverRevoked = await logoutSession(authToken);
     setCurrentUser(null);
     setAuthToken('');
-    if (navState.activeView === 'profile') {
-      setActiveView('home');
+    setPendingProtectedView('');
+    if (isAuthenticatedView(navState.activeView)) {
+      setNavState((prev) => ({ ...prev, activeView: 'home' }));
     }
     if (!serverRevoked) {
       setAuthError('Saída local realizada, mas o servidor não confirmou a revogação da sessão. O cookie de proteção foi invalidado neste navegador; tente entrar novamente quando a conexão estiver estável.');
@@ -3344,7 +3368,7 @@ export default function App() {
       {/* ====================================================================
           CORPO PRINCIPAL COM MENU LATERAL DE MÓDULOS + CONTEÚDO
          ==================================================================== */}
-      {storageIdentityReady ? (
+      {storageIdentityReady && (!isAuthenticatedView(navState.activeView) || Boolean(currentUser)) ? (
       <div className="flex-1 max-w-7xl w-full mx-auto flex relative">
         {mobileMenuOpen && (
           <div
@@ -3937,7 +3961,7 @@ export default function App() {
         )}
 
         {/* PERFIL DO ALUNO */}
-        {navState.activeView === 'profile' && (
+        {navState.activeView === 'profile' && currentUser && (
           <StudentProfileView
             currentUser={currentUser}
             totalXP={totalXP}
@@ -3952,7 +3976,7 @@ export default function App() {
           />
         )}
 
-        {navState.activeView === 'sessions' && (
+        {navState.activeView === 'sessions' && currentUser && (
           <SessionDevicesView onBack={() => setActiveView('profile')} onLogoutAll={() => {
             finalizeSessionLogout(); setAuthToken(''); setCurrentUser(null);
             setAuthMode('login'); setAuthError('Todas as sessões foram encerradas. Entre novamente para continuar.');
@@ -3961,7 +3985,7 @@ export default function App() {
         )}
 
         {/* CENTRAL DE PRIVACIDADE */}
-        {navState.activeView === 'privacy' && (
+        {navState.activeView === 'privacy' && currentUser && (
           <PrivacyCenterView
             authToken={authToken}
             currentUser={currentUser}
@@ -3970,6 +3994,12 @@ export default function App() {
           />
         )}
       </div>
+      ) : storageIdentityReady && isAuthenticatedView(navState.activeView) ? (
+        <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
+          <p>Esta área exige uma conta autenticada.</p>
+          <p className="text-slate-400">Entre na sua conta para acessar seu perfil, privacidade e dispositivos conectados.</p>
+          <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setAuthModalOpen(true); }} className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500">Entrar</button>
+        </main>
       ) : sessionIdentityError ? (
         <main role="alert" aria-live="assertive" className="flex-1 max-w-7xl w-full mx-auto p-8 flex flex-col items-center justify-center gap-3 text-sm text-amber-300">
           <p>Não foi possível confirmar sua sessão com segurança.</p>
