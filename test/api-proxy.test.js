@@ -45,12 +45,13 @@ test('proxy forwards only to the fixed staging API and preserves auth headers', 
       url: '/api/proxy?path=auth%2Fsession%2Flogin&source=test',
       query: { path: 'auth/session/login' },
       method: 'POST',
-      headers: { cookie: 'session=synthetic', origin: 'https://preview.example', 'content-type': 'application/json', 'x-csrf-token': 'csrf' },
+      headers: { authorization: 'Bearer synthetic-access-token', cookie: 'session=synthetic', origin: 'https://preview.example', 'content-type': 'application/json', 'x-csrf-token': 'csrf' },
       body: { email: 'synthetic@example.invalid', password: 'not-a-real-password' }
     }, res);
     await finished;
     assert.equal(captured.url, 'https://nexusdev-staging-v2.onrender.com/api/auth/session/login?source=test');
     assert.equal(captured.options.headers.get('x-nexus-proxy-key'), 's'.repeat(48));
+    assert.equal(captured.options.headers.get('authorization'), 'Bearer synthetic-access-token');
     assert.equal(captured.options.headers.get('cookie'), 'session=synthetic');
     assert.equal(captured.options.headers.get('origin'), 'https://preview.example');
     assert.equal(captured.options.body, JSON.stringify({ email: 'synthetic@example.invalid', password: 'not-a-real-password' }));
