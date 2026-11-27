@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import handler from '../api/[...path].js';
 import { PassThrough } from 'node:stream';
@@ -58,4 +59,15 @@ test('proxy forwards only to the fixed staging API and preserves auth headers', 
     if (previousSecret === undefined) delete process.env.NEXUSDEV_PROXY_SECRET;
     else process.env.NEXUSDEV_PROXY_SECRET = previousSecret;
   }
+});
+
+test('SPA fallback never captures API routes', () => {
+  const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+  const fallback = config.rewrites.find(rule => rule.destination === '/index.html');
+  assert.ok(fallback, 'SPA fallback rewrite must exist');
+  const matcher = new RegExp(fallback.source);
+  assert.equal(matcher.test('/api/health'), false);
+  assert.equal(matcher.test('/api/auth/session/login'), false);
+  assert.equal(matcher.test('/'), true);
+  assert.equal(matcher.test('/student/profile'), true);
 });
